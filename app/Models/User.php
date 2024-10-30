@@ -2,7 +2,6 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
@@ -13,7 +12,6 @@ class User extends Authenticatable implements JWTSubject
 {
     use HasFactory, Notifiable, HasRoles;
 
-
     /**
      * The attributes that are mass assignable.
      *
@@ -21,8 +19,13 @@ class User extends Authenticatable implements JWTSubject
      */
     protected $fillable = [
         'name',
+        'username',            // New username field
         'email',
         'password',
+        'position',            // User's job title or position
+        'department',          // User's department
+        'reviewing_officer_id', // ID of the reviewing officer
+        'approving_officer_id', // ID of the approving officer
     ];
 
     /**
@@ -36,9 +39,9 @@ class User extends Authenticatable implements JWTSubject
     ];
 
     /**
-     * Get the attributes that should be cast.
+     * The attributes that should be cast.
      *
-     * @return array<string, string>
+     * @var array<string, string>
      */
     protected function casts(): array
     {
@@ -59,7 +62,7 @@ class User extends Authenticatable implements JWTSubject
     }
 
     /**
-     * Return a key value array, containing any custom claims to be added to the JWT.
+     * Return a key-value array containing any custom claims to be added to the JWT.
      *
      * @return array
      */
@@ -68,5 +71,39 @@ class User extends Authenticatable implements JWTSubject
         return [];
     }
 
+    /**
+     * Check if the user has review permissions.
+     *
+     * @return bool
+     */
+    public function canReview()
+    {
+        return $this->can('review');
+    }
 
+    /**
+     * Check if the user has approve permissions.
+     *
+     * @return bool
+     */
+    public function canApprove()
+    {
+        return $this->can('approve');
+    }
+
+    /**
+     * Relationship to fetch the reviewing officer for this user.
+     */
+    public function reviewingOfficer()
+    {
+        return $this->belongsTo(User::class, 'reviewing_officer_id');
+    }
+
+    /**
+     * Relationship to fetch the approving officer for this user.
+     */
+    public function approvingOfficer()
+    {
+        return $this->belongsTo(User::class, 'approving_officer_id');
+    }
 }

@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\ApiResponseHelper;
+use Illuminate\Database\Eloquent\ModelNotFoundException;
 
 class UserService
 {
@@ -15,37 +16,21 @@ class UserService
         $this->userRepository = $userRepository;
     }
 
-    /**
-     * Register a new user and assign a role.
-     *
-     * @param array $data
-     * @return array
-     */
     public function registerUserWithRole(array $data): array
     {
-        // Create the user in the repository
         $user = $this->userRepository->create($data);
-
-        // Assign the role if it exists
         $role = $this->userRepository->findRoleById($data['role_id']);
         if ($role) {
             $user->assignRole($role->name);
         }
 
-        // Format the response
         return ApiResponseHelper::formatUserResponse($user);
     }
 
-    /**
-     * Authenticate a user and return a JWT token with user information.
-     *
-     * @param array $credentials
-     * @return array|null
-     */
     public function loginUser(array $credentials): ?array
     {
         if (!$token = Auth::attempt($credentials)) {
-            return null; // Authentication failed
+            return null;
         }
 
         $user = Auth::user();
@@ -56,12 +41,6 @@ class UserService
         ];
     }
 
-    /**
-     * Format the token response.
-     *
-     * @param string $token
-     * @return array
-     */
     protected function formatTokenResponse($token): array
     {
         return [
@@ -69,5 +48,55 @@ class UserService
             'token_type' => 'bearer',
             'expires_in' => Auth::factory()->getTTL() * 60
         ];
+    }
+
+    public function getAllUsers()
+    {
+        // Fetch all users and eager load relationships
+        $users = $this->userRepository->all()->load(['reviewingOfficer', 'approvingOfficer', 'roles']);
+
+        // Format each user's response
+        return $users->map(function ($user) {
+            return ApiResponseHelper::formatUserResponse($user);
+        });
+    }
+
+
+    public function getUserById($id)
+    {
+        try {
+            // Fetch the user and eager load necessary relationships
+            $user = $this->userRepository->find($id)->load(['reviewingOfficer', 'approvingOfficer', 'roles']);
+
+            // Format the user data using ApiResponseHelper
+            return ApiResponseHelper::formatUserResponse($user);
+        } catch (ModelNotFoundException $e) {
+            throw new ModelNotFoundException('User not found.');
+        }
+    }
+
+    public function updateUser($id, array $data)
+    {
+        try {
+            $user = $this->userRepository->update($id, $data);
+            if (isset($data['role_id'])) {
+                $role = $this->userRepository->findRoleById($data['role_id']);
+                if ($role) {
+                    $user->syncRoles([$role->name]);
+                }
+            }
+            return ApiResponseHelper::formatUserResponse($user);
+        } catch (ModelNotFoundException $e) {
+            throw new ModelNotFoundException('User not found for update.');
+        }
+    }
+
+    public function deleteUser($id)
+    {
+        try {
+            return $this->userRepository->delete($id);
+        } catch (ModelNotFoundException $e) {
+            throw new ModelNotFoundException('User not found for deletion.');
+        }
     }
 }

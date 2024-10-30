@@ -5,7 +5,7 @@ namespace Database\Seeders;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 use Spatie\Permission\Models\Role;
-
+use Spatie\Permission\Models\Permission;
 
 class RoleSeeder extends Seeder
 {
@@ -14,9 +14,17 @@ class RoleSeeder extends Seeder
      */
     public function run(): void
     {
-        Role::create(['name' => 'Pegawai']);
-        Role::create(['name' => 'Semakan']);
-        Role::create(['name' => 'Pengesahan']);
-        Role::create(['name' => 'Semakan & Pengesahan']);
+        // Create permissions
+        $reviewPermission = Permission::findOrCreate('review');
+        $approvePermission = Permission::findOrCreate('approve');
+
+        // Assign permissions to roles
+        $semakanRole = Role::findOrCreate('Semakan');
+        $pengesahanRole = Role::findOrCreate('Pengesahan');
+        $semakanPengesahanRole = Role::findOrCreate('Semakan & Pengesahan');
+
+        $semakanRole->givePermissionTo($reviewPermission);
+        $pengesahanRole->givePermissionTo($approvePermission);
+        $semakanPengesahanRole->givePermissionTo([$reviewPermission, $approvePermission]);
     }
 }

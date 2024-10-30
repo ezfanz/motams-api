@@ -18,18 +18,6 @@ class AuthController extends Controller
         $this->userService = $userService;
     }
 
-    /**
-     * Register a User.
-     *
-     * @param RegisterUserRequest $request
-     * @return \Illuminate\Http\JsonResponse
-     */
-    public function register(RegisterUserRequest $request)
-    {
-        $user = $this->userService->registerUserWithRole($request->all());
-
-        return ResponseHelper::success($user, 'User registered successfully', 201);
-    }
 
      /**
      * Get a JWT via given credentials.
