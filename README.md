@@ -123,7 +123,7 @@ Below are some key API endpoints:
    - **Submit Complaint**: `POST /v1/complaints`
    - **List Complaint Types**: `GET /v1/complaints/types`
 
-For further API details, please refer to the [API Documentation](#api-documentation) section.
+For further API details, please refer to the Bruno Api Repo [API Documentation](https://github.com/ezfanz/motams-bruno) section.
 
 ---
 
