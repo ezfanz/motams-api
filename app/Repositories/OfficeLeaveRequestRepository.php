@@ -1,0 +1,87 @@
+<?php
+
+namespace App\Repositories;
+
+use App\Models\OfficeLeaveRequest;
+use Illuminate\Database\Eloquent\Collection;
+
+class OfficeLeaveRequestRepository
+{
+    /**
+     * Get all office leave requests.
+     *
+     * @return Collection
+     */
+    public function getAll(): Collection
+    {
+        return OfficeLeaveRequest::with('leaveType', 'creator')->get();
+    }
+
+    /**
+     * Find an office leave request by ID.
+     *
+     * @param int $id
+     * @return OfficeLeaveRequest|null
+     */
+    public function findById(int $id): ?OfficeLeaveRequest
+    {
+        return OfficeLeaveRequest::with('leaveType', 'creator')->find($id);
+    }
+
+    /**
+     * Create a new office leave request.
+     *
+     * @param array $data
+     * @return OfficeLeaveRequest
+     */
+    public function create(array $data): OfficeLeaveRequest
+    {
+        return OfficeLeaveRequest::create($data);
+    }
+
+    /**
+     * Update an existing office leave request.
+     *
+     * @param int $id
+     * @param array $data
+     * @return OfficeLeaveRequest|null
+     */
+    public function update(int $id, array $data): ?OfficeLeaveRequest
+    {
+        $leaveRequest = $this->findById($id);
+        if ($leaveRequest) {
+            $leaveRequest->update($data);
+        }
+
+        return $leaveRequest;
+    }
+
+    /**
+     * Delete an office leave request by ID.
+     *
+     * @param int $id
+     * @return bool
+     */
+    public function delete(int $id): bool
+    {
+        $leaveRequest = $this->findById($id);
+        return $leaveRequest ? $leaveRequest->delete() : false;
+    }
+
+     /**
+     * Get leave requests by month and year.
+     *
+     * @param int $month
+     * @param int $year
+     * @return Collection
+     */
+    public function getByMonth(int $month, int $year): Collection
+    {
+        return OfficeLeaveRequest::with('leaveType', 'creator')
+            ->whereYear('date', $year)
+            ->whereMonth('date', $month)
+            ->get();
+    }
+
+
+}

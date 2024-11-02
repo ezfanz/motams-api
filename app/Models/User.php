@@ -106,4 +106,36 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->belongsTo(User::class, 'approving_officer_id');
     }
+
+    /**
+     * Relationship with AttendanceRecords.
+     */
+    public function attendanceRecords()
+    {
+        return $this->hasMany(AttendanceRecord::class);
+    }
+
+    /**
+     * Relationship with Approvals as a Reviewer.
+     */
+    public function reviews()
+    {
+        return $this->hasMany(AttendanceApproval::class, 'reviewed_by');
+    }
+
+    /**
+     * Relationship with Approvals as an Approver.
+     */
+    public function approvals()
+    {
+        return $this->hasMany(AttendanceApproval::class, 'approved_by');
+    }
+
+    /**
+     * Relationship with Notifications.
+     */
+    public function notifications()
+    {
+        return $this->hasMany(Notification::class);
+    }
 }
