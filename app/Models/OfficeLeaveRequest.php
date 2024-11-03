@@ -24,6 +24,8 @@ class OfficeLeaveRequest extends Model
         'end_time',
         'reason',
         'status',
+        'approval_status_id',
+        'approval_notes'
     ];
 
     /**
@@ -40,5 +42,10 @@ class OfficeLeaveRequest extends Model
     public function leaveType()
     {
         return $this->belongsTo(LeaveType::class);
+    }
+
+    public function approvalStatus()
+    {
+        return $this->belongsTo(ReviewStatus::class, 'approval_status_id');
     }
 }

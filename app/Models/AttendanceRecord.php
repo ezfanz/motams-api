@@ -73,6 +73,14 @@ class AttendanceRecord extends Model
         return $this->belongsTo(ReviewStatus::class);
     }
 
+     /**
+     * Relationship with ReviewStatus for verification status.
+     */
+    public function verificationStatus()
+    {
+        return $this->belongsTo(ReviewStatus::class, 'verification_status_id');
+    }
+
     public function employee()
     {
         return $this->belongsTo(User::class, 'created_by');

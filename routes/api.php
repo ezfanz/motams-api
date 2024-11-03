@@ -7,8 +7,10 @@ use App\Http\Controllers\Complaint\ComplaintController;
 use App\Http\Controllers\Attendance\AttendanceRecordController;
 use App\Http\Controllers\Attendance\AttendanceReviewController;
 use App\Http\Controllers\Attendance\ReviewStatusController;
+use App\Http\Controllers\Attendance\VerificationController;
 use App\Http\Controllers\Leave\OfficeLeaveRequestController;
 use App\Http\Controllers\Leave\LeaveTypeController;
+use App\Http\Controllers\Leave\OfficeLeaveApprovalController;
 
 /**
  * Public Routes for Authentication
@@ -53,11 +55,21 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
     });
 
     /**
-     * Leave Requests
+     * Office Leave Management
      */
-    Route::prefix('office-leave-requests')->group(function () {
-        Route::get('/monthly', [OfficeLeaveRequestController::class, 'getByMonth']);
-        Route::apiResource('/', OfficeLeaveRequestController::class);
+    Route::prefix('office-leave')->group(function () {
+
+        // Office Leave Requests
+        Route::get('requests/monthly', [OfficeLeaveRequestController::class, 'getByMonth']);
+        Route::apiResource('requests', OfficeLeaveRequestController::class); // Register without additional prefix
+
+        // Office Leave Approvals
+        Route::prefix('approvals')->group(function () {
+            Route::get('/', [OfficeLeaveApprovalController::class, 'index']);
+            Route::get('/status-options', [OfficeLeaveApprovalController::class, 'getStatusOptions']);
+            Route::post('/batch-update', [OfficeLeaveApprovalController::class, 'batchUpdate']);
+            Route::get('/summary', [OfficeLeaveApprovalController::class, 'getMonthlySummary']);
+        });
     });
 
     /**
@@ -78,4 +90,14 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
      * Review Status Options
      */
     Route::get('review-status-options', [ReviewStatusController::class, 'index'])->name('review-status-options.index');
+
+    /**
+     * Attendance Verification
+     */
+    Route::prefix('office-verifications')->group(function () {
+        Route::get('/', [VerificationController::class, 'index']);
+        Route::get('/status-options', [VerificationController::class, 'getStatusOptions']);
+        Route::post('/batch-update', [VerificationController::class, 'batchUpdate']);
+        Route::get('/summary', [VerificationController::class, 'getMonthlySummary']);
+    });
 });
