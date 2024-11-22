@@ -20,6 +20,7 @@ class ApiResponseHelper
             'department' => $user->department,
             'email' => $user->email,
             'email_verified_at' => $user->email_verified_at,
+            'last_login_at' => $user->last_login_at ? $user->last_login_at->format('d/m/Y, h:i:s a') : null, // Format the date
             'created_at' => $user->created_at,
             'updated_at' => $user->updated_at,
             'reviewing_officer' => $user->reviewingOfficer ? [

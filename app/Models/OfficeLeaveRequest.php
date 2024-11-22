@@ -5,6 +5,8 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Carbon\Carbon;
+
 
 class OfficeLeaveRequest extends Model
 {
@@ -47,5 +49,26 @@ class OfficeLeaveRequest extends Model
     public function approvalStatus()
     {
         return $this->belongsTo(ReviewStatus::class, 'approval_status_id');
+    }
+
+      /**
+     * Accessor to calculate the remaining hours for the day.
+     */
+    public function getRemainingHoursAttribute()
+    {
+        $today = Carbon::now()->format('Y-m-d');
+        $startTime = Carbon::parse($this->start_time);
+        $endTime = Carbon::parse($this->end_time);
+
+        // Total hours of leave for this request
+        $leaveHours = $startTime->diffInMinutes($endTime) / 60;
+
+        // Total allowed hours (4 hours per day)
+        $totalAllowedHours = 4;
+
+        // Calculate remaining hours
+        $remainingHours = $totalAllowedHours - $leaveHours;
+
+        return $remainingHours > 0 ? $remainingHours : 0;
     }
 }

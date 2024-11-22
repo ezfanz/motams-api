@@ -8,6 +8,8 @@ use App\Http\Requests\User\StoreUserRequest;
 use App\Http\Requests\User\UpdateUserRequest;
 use App\Services\UserService;
 use App\Helpers\ResponseHelper;
+use Illuminate\Support\Facades\Auth;
+
 
 class UserController extends Controller
 {
@@ -46,5 +48,11 @@ class UserController extends Controller
     {
         $this->userService->deleteUser($id);
         return ResponseHelper::success(null, 'User deleted successfully');
+    }
+
+    public function profile()
+    {
+        $userProfile = $this->userService->getUserProfile(Auth::id());
+        return ResponseHelper::success($userProfile, 'Profile retrieved successfully');
     }
 }

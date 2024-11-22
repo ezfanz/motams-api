@@ -6,6 +6,7 @@ use App\Http\Controllers\User\UserController;
 use App\Http\Controllers\Complaint\ComplaintController;
 use App\Http\Controllers\Attendance\AttendanceRecordController;
 use App\Http\Controllers\Attendance\AttendanceReviewController;
+use App\Http\Controllers\Attendance\AttendanceLogController;
 use App\Http\Controllers\Attendance\ReviewStatusController;
 use App\Http\Controllers\Attendance\VerificationController;
 use App\Http\Controllers\Leave\OfficeLeaveRequestController;
@@ -34,6 +35,9 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
     /**
      * User Management
      */
+    Route::prefix('users')->group(function () {
+        Route::get('/profile', [UserController::class, 'profile'])->name('user.profile');
+    });
     Route::apiResource('users', UserController::class);
 
     /**
@@ -52,6 +56,15 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
 
         // General resource routes
         Route::apiResource('/', AttendanceRecordController::class);
+    });
+
+    /**
+     * Attendance Logs
+     */
+    Route::prefix('attendance-logs')->group(function () {
+        Route::get('/', [AttendanceLogController::class, 'index']); // Get all logs for the user
+        Route::get('/{date}', [AttendanceLogController::class, 'show']); // Get log by date
+        Route::post('/', [AttendanceLogController::class, 'store']); // Create or update attendance log
     });
 
     /**

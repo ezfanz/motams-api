@@ -6,6 +6,8 @@ use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\ApiResponseHelper;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use App\Models\User;
+use App\Models\OfficeLeaveRequest;
 
 class UserService
 {
@@ -34,6 +36,10 @@ class UserService
         }
 
         $user = Auth::user();
+
+        // Update the last login timestamp
+        $user->last_login_at = now();
+        $user->save();
 
         return [
             'user' => ApiResponseHelper::formatUserResponse($user),
@@ -98,5 +104,47 @@ class UserService
         } catch (ModelNotFoundException $e) {
             throw new ModelNotFoundException('User not found for deletion.');
         }
+    }
+
+    public function getUserProfile($userId)
+    {
+        $user = $this->userRepository->find($userId);
+
+        // Calculate remaining hours (baki tempoh keluar pejabat)
+        $remainingHours = $this->calculateRemainingHours($userId);
+
+        return [
+            'name' => $user->name,
+            'email' => $user->email,
+            'role' => $user->getRoleNames()->first() ?? 'No Role',
+            'last_login' => $user->last_login_at,
+            'remaining_hours' => $remainingHours,
+        ];
+    }
+
+    /**
+     * Calculate the remaining hours for the user's office leave requests.
+     *
+     * @param int $userId
+     * @return string|null
+     */
+    private function calculateRemainingHours($userId)
+    {
+        $remainingHours = OfficeLeaveRequest::where('created_by', $userId)
+            ->whereDate('date', now()->toDateString()) // Current date
+            ->where('status', 'Approved') // Ensure the leave is approved
+            ->whereNull('deleted_at') // Ensure it is not soft-deleted
+            ->selectRaw('(4 - SUM(TIMESTAMPDIFF(MINUTE, start_time, end_time) / 60)) AS remaining_hours')
+            ->value('remaining_hours');
+
+        // Format remaining hours to HH:MM or return null if no remaining hours
+        if ($remainingHours !== null) {
+            $hours = floor($remainingHours);
+            $minutes = ($remainingHours - $hours) * 60;
+
+            return sprintf('%02d:%02d', $hours, $minutes);
+        }
+
+        return '04:00'; // Default to 4 hours if no records are found
     }
 }

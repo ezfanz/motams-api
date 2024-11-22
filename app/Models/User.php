@@ -26,6 +26,12 @@ class User extends Authenticatable implements JWTSubject
         'department',          // User's department
         'reviewing_officer_id', // ID of the reviewing officer
         'approving_officer_id', // ID of the approving officer
+        'last_login_at',
+    ];
+
+    // Ensure the last_login_at attribute is cast as a datetime
+    protected $casts = [
+        'last_login_at' => 'datetime',
     ];
 
     /**
