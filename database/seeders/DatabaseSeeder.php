@@ -17,6 +17,7 @@ class DatabaseSeeder extends Seeder
             LeaveTypeSeeder::class,
             ReviewStatusSeeder::class,
             RoleSeeder::class,
+            CalendarSeeder::class,
         ]);
     }
 }
