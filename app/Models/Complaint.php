@@ -35,4 +35,12 @@ class Complaint extends Model
     {
         return $this->belongsTo(User::class, 'handled_by');
     }
+
+    /**
+     * Polymorphic relationship with ReasonTransaction.
+     */
+    public function reasonTransactions()
+    {
+        return $this->morphMany(ReasonTransaction::class, 'reasonable');
+    }
 }

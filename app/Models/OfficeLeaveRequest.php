@@ -39,6 +39,15 @@ class OfficeLeaveRequest extends Model
     }
 
     /**
+     * Relationship with the User (reviewer of the leave request).
+     */
+    public function reviewer()
+    {
+        return $this->belongsTo(User::class, 'reviewer_id');
+    }
+
+
+    /**
      * Define the relationship with the LeaveType.
      */
     public function leaveType()
@@ -70,5 +79,13 @@ class OfficeLeaveRequest extends Model
         $remainingHours = $totalAllowedHours - $leaveHours;
 
         return $remainingHours > 0 ? $remainingHours : 0;
+    }
+
+    /**
+     * Polymorphic relationship with ReasonTransaction.
+     */
+    public function reasonTransactions()
+    {
+        return $this->morphMany(ReasonTransaction::class, 'reasonable');
     }
 }

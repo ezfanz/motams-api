@@ -85,4 +85,12 @@ class AttendanceRecord extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+     /**
+     * Polymorphic relationship with ReasonTransaction.
+     */
+    public function reasonTransactions()
+    {
+        return $this->morphMany(ReasonTransaction::class, 'reasonable');
+    }
 }
