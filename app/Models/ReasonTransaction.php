@@ -72,4 +72,20 @@ class ReasonTransaction extends Model
     {
         return $this->belongsTo(User::class, 'created_by');
     }
+
+     /**
+     * Relationship with Reason.
+     */
+    public function reason()
+    {
+        return $this->belongsTo(Reason::class, 'reason_id');
+    }
+
+    /**
+     * Relationship with Reason Type.
+     */
+    public function reasonType()
+    {
+        return $this->belongsTo(Reason::class, 'reason_type_id');
+    }
 }

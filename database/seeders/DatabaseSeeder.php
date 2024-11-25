@@ -18,6 +18,7 @@ class DatabaseSeeder extends Seeder
             ReviewStatusSeeder::class,
             RoleSeeder::class,
             CalendarSeeder::class,
+            ColourSeeder::class,
         ]);
     }
 }
