@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Repositories\AttendanceRecordRepository;
 use App\Helpers\ResponseHelper;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Log;
 
 class AttendanceRecordService
 {
@@ -56,5 +57,30 @@ class AttendanceRecordService
     {
         return $this->attendanceRecordRepository->getByStatus($statusId);
     }
+
+    public function getAttendanceLogs($userId, $staffId)
+    {
+        // Log the input parameters
+        Log::info("Getting attendance logs with parameters", [
+            'userId' => $userId,
+            'staffId' => $staffId,
+        ]);
+
+        $daynow = \Carbon\Carbon::now()->format('d');
+        $firstDayofCurrentMonth = \Carbon\Carbon::now()->startOfMonth()->toDateTimeString();
+        $firstDayofPreviousMonth = \Carbon\Carbon::now()->subMonthNoOverflow()->startOfMonth()->toDateTimeString();
+        $lastDayofCurrentMonth = \Carbon\Carbon::now()->endOfMonth()->toDateTimeString();
+
+        $startDay = $daynow > 10 ? $firstDayofCurrentMonth : $firstDayofPreviousMonth;
+
+        // Log date range being used
+        Log::info("Fetching logs between dates", [
+            'startDay' => $startDay,
+            'lastDay' => $lastDayofCurrentMonth,
+        ]);
+
+        return $this->attendanceRecordRepository->getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDayofCurrentMonth);
+    }
+
 
 }

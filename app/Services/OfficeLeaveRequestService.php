@@ -114,4 +114,12 @@ class OfficeLeaveRequestService
             'leave_requests' => $leaveRequests,
         ];
     }
+
+    public function countApprovalsForUser(int $userId): int
+    {
+        return OfficeLeaveRequest::where('status', '15')
+            ->where('approval_status_id', $userId)
+            ->count();
+    }
+
 }

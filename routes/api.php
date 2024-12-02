@@ -53,6 +53,8 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
         Route::get('/tidak-hadir', [AttendanceRecordController::class, 'listTidakHadir']);
         Route::get('/datang-lewat', [AttendanceRecordController::class, 'listDatangLewat']);
         Route::get('/balik-awal', [AttendanceRecordController::class, 'listBalikAwal']);
+        Route::get('/status/{idpeg}', [AttendanceRecordController::class, 'getAttendanceLogs'])->where('idpeg', '[0-9]+');
+
 
         // General resource routes
         Route::apiResource('/', AttendanceRecordController::class);
@@ -62,9 +64,9 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
      * Attendance Logs
      */
     Route::prefix('attendance-logs')->group(function () {
-        Route::get('/', [AttendanceLogController::class, 'index']); // Get all logs for the user
-        Route::get('/{date}', [AttendanceLogController::class, 'show']); // Get log by date
-        Route::post('/', [AttendanceLogController::class, 'store']); // Create or update attendance log
+        Route::get('/', [AttendanceLogController::class, 'index']);
+        Route::get('/{date}', [AttendanceLogController::class, 'show']);
+        Route::post('/', [AttendanceLogController::class, 'store']);
     });
 
     /**
@@ -74,6 +76,8 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
 
         // Office Leave Requests
         Route::get('requests/monthly', [OfficeLeaveRequestController::class, 'getByMonth']);
+        Route::get('requests/count-approval', [OfficeLeaveRequestController::class, 'countApproval']);
+
         Route::apiResource('requests', OfficeLeaveRequestController::class); // Register without additional prefix
 
         // Office Leave Approvals

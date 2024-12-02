@@ -5,6 +5,8 @@ namespace App\Repositories;
 use App\Models\AttendanceRecord;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 
 class AttendanceRecordRepository
@@ -151,4 +153,130 @@ public function getMonthlyStatusCounts(int $month, int $year)
         ->values()
         ->toArray();
 }
+
+public function getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDay)
+{
+    // Log debug information
+    Log::info('Fetching attendance records', [
+        'userId' => $userId,
+        'staffId' => $staffId,
+        'startDay' => $startDay,
+        'lastDay' => $lastDay,
+    ]);
+
+    // Perform the query
+    $results = DB::table('calendars')
+        ->leftJoin('transit', function ($join) use ($staffId) {
+            $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
+                 ->where('transit.staffid', '=', (int) $staffId); // Ensure staffId is cast to integer
+        })
+        ->selectRaw('
+            calendars.fulldate,
+            calendars.year,
+            calendars.monthname,
+            calendars.dayname,
+            calendars.isweekday,
+            calendars.isholiday,
+            transit.staffid,
+            ? AS idpeg,
+            MIN(transit.trdatetime) AS datetimein,
+            DATE_FORMAT(MIN(transit.trdatetime), "%T") AS timein,
+            MAX(transit.trdatetime) AS datetimeout,
+            DATE_FORMAT(MAX(transit.trdatetime), "%T") AS timeout,
+            CASE
+                WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND TIME(MIN(transit.trdatetime)) >= "09:01:00" THEN 1
+                ELSE 0
+            END AS latein,
+            CASE
+                WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND transit.ramadhan_yt = 0 AND TIME(MAX(transit.trdatetime)) <= "18:00:00"
+                     AND (HOUR(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime)))) > (HOUR(MAX(transit.trdatetime)) * 60 + MINUTE(MAX(transit.trdatetime)))
+                THEN 1
+                ELSE 0
+            END AS earlyout,
+            (
+                SELECT reasons.description
+                FROM reason_transactions
+                JOIN reasons ON reason_transactions.reason_id = reasons.id
+                WHERE reason_transactions.log_timestamp = MIN(transit.trdatetime)
+                AND reason_transactions.employee_id = ?
+                AND reason_transactions.reason_type_id = 1
+                AND reason_transactions.deleted_at IS NULL
+                LIMIT 1
+            ) AS latereason,
+            (
+                SELECT reasons.description
+                FROM reason_transactions
+                JOIN reasons ON reason_transactions.reason_id = reasons.id
+                WHERE reason_transactions.log_timestamp = MAX(transit.trdatetime)
+                AND reason_transactions.employee_id = ?
+                AND reason_transactions.reason_type_id = 2
+                AND reason_transactions.deleted_at IS NULL
+                LIMIT 1
+            ) AS earlyreason,
+            (
+                SELECT reasons.description
+                FROM reason_transactions
+                JOIN reasons ON reason_transactions.reason_id = reasons.id
+                WHERE reason_transactions.log_timestamp = calendars.fulldate
+                AND reason_transactions.employee_id = ?
+                AND reason_transactions.reason_type_id = 3
+                AND reason_transactions.deleted_at IS NULL
+                LIMIT 1
+            ) AS absentreasont,
+            (
+                SELECT reason_transactions.status
+                FROM reason_transactions
+                WHERE reason_transactions.log_timestamp = MIN(transit.trdatetime)
+                AND reason_transactions.employee_id = ?
+                AND reason_transactions.reason_type_id = 1
+                AND reason_transactions.deleted_at IS NULL
+                LIMIT 1
+            ) AS statuslate,
+            (
+                SELECT reason_transactions.status
+                FROM reason_transactions
+                WHERE reason_transactions.log_timestamp = MAX(transit.trdatetime)
+                AND reason_transactions.employee_id = ?
+                AND reason_transactions.reason_type_id = 2
+                AND reason_transactions.deleted_at IS NULL
+                LIMIT 1
+            ) AS statusearly,
+            (
+                SELECT reason_transactions.status
+                FROM reason_transactions
+                WHERE reason_transactions.log_timestamp = calendars.fulldate
+                AND reason_transactions.employee_id = ?
+                AND reason_transactions.reason_type_id = 3
+                AND reason_transactions.deleted_at IS NULL
+                LIMIT 1
+            ) AS statusabsent
+        ', [
+            $userId, // idpeg
+            $userId, $userId, $userId, // For reasons
+            $userId, $userId, $userId, // For statuses
+        ])
+        ->whereBetween('calendars.fulldate', [$startDay, $lastDay])
+        ->where('calendars.isweekday', 1)
+        ->where('calendars.isholiday', 0)
+        ->groupBy(
+            'calendars.fulldate',
+            'calendars.year',
+            'calendars.monthname',
+            'calendars.dayname',
+            'calendars.isweekday',
+            'calendars.isholiday',
+            'transit.staffid'
+        )
+        ->orderBy('calendars.fulldate', 'ASC')
+        ->get();
+
+    // Log the executed query
+    Log::debug('Executed Attendance Query', DB::getQueryLog());
+
+    return $results;
+}
+
+
+
+
 }

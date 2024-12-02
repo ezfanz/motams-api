@@ -9,6 +9,7 @@ use Illuminate\Http\JsonResponse;
 use App\Helpers\ResponseHelper;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 
 class OfficeLeaveRequestController extends Controller
@@ -108,5 +109,22 @@ class OfficeLeaveRequestController extends Controller
         $leaveRequests = $this->service->getLeaveRequestsByMonth($month, $year);
 
         return ResponseHelper::success($leaveRequests, 'Leave requests retrieved successfully for the specified month');
+    }
+
+    public function countApproval(Request $request): JsonResponse
+    {
+        // Get the current user ID
+        $userId = Auth::user()->id;
+
+        // If there's a passed parameter for user ID (from the box), use it
+        if ($request->has('idpeg') && is_numeric($request->input('idpeg'))) {
+            $userId = $request->input('idpeg');
+        }
+
+        // Call the service to count approvals
+        $approvalCount = $this->service->countApprovalsForUser($userId);
+
+        // Return the count as a response
+        return ResponseHelper::success(['count' => $approvalCount], 'Approval count retrieved successfully');
     }
 }

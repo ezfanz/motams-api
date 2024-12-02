@@ -8,7 +8,9 @@ use App\Http\Requests\Attendance\AttendanceRecordRequest;
 use App\Helpers\ResponseHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Support\Facades\Log;
 use App\Http\Resources\AttendanceRecordResource;
+use App\Models\User;
 
 
 class AttendanceRecordController extends Controller
@@ -79,4 +81,31 @@ class AttendanceRecordController extends Controller
         $records = $this->attendanceRecordService->getRecordsByStatus(3); // Status ID for Balik Awal
         return ResponseHelper::success(AttendanceRecordResource::collection($records), 'Balik Awal records retrieved successfully');
     }
+
+    public function getAttendanceLogs($idpeg)
+    {
+        // Validate $idpeg is numeric
+        if (!is_numeric($idpeg)) {
+            Log::error("Invalid User ID provided: {$idpeg}");
+            return ResponseHelper::error('Invalid User ID. Must be a numeric value.', 400);
+        }
+
+        // Check if user exists and is not soft-deleted
+        $staffId = User::whereNull('deleted_at')
+            ->where('id', $idpeg)
+            ->value('staff_id');
+
+        if (!$staffId) {
+            Log::warning("Staff ID not found for User ID: {$idpeg}");
+            return ResponseHelper::error('Staff ID not found for the given user.', 404);
+        }
+
+        // Call service to get logs
+        Log::info("Fetching attendance logs for User ID: {$idpeg}, Staff ID: {$staffId}");
+        $logs = $this->attendanceRecordService->getAttendanceLogs($idpeg, $staffId);
+
+        return ResponseHelper::success($logs, 'Attendance logs retrieved successfully');
+    }
+
+
 }
