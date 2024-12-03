@@ -60,4 +60,14 @@ class Calendar extends Model
     {
         return $query->where('is_ramadhan', true);
     }
+
+    public function transit()
+    {
+        return $this->hasMany(Transit::class, 'staffid', 'staffid');
+    }
+
+    public function reasonTransactions()
+    {
+        return $this->hasMany(ReasonTransaction::class, 'log_timestamp', 'fulldate');
+    }
 }

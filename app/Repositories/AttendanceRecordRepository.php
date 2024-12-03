@@ -78,7 +78,7 @@ class AttendanceRecordRepository
             ->get();
     }
 
-     /**
+    /**
      * Filter attendance records by status and date.
      *
      * @param array $filters
@@ -96,7 +96,7 @@ class AttendanceRecordRepository
 
         if (isset($filters['month']) && isset($filters['year'])) {
             $query->whereMonth('date', $filters['month'])
-                  ->whereYear('date', $filters['year']);
+                ->whereYear('date', $filters['year']);
         }
 
         return $query->get();
@@ -119,58 +119,58 @@ class AttendanceRecordRepository
         ]);
     }
 
-  /**
- * Get the count and list of attendance records by review status for a specific month and year.
- *
- * @param int $month
- * @param int $year
- * @return array
- */
-public function getMonthlyStatusCounts(int $month, int $year)
-{
-    return AttendanceRecord::with('reviewStatus')
-        ->whereMonth('date', $month)
-        ->whereYear('date', $year)
-        ->get()
-        ->groupBy('review_status_id')
-        ->map(function ($records, $statusId) {
-            return [
-                'status' => optional($records->first()->reviewStatus)->status ?? 'No Status',
-                'total' => $records->count(),
-                'records' => $records->map(function ($record) {
-                    return [
-                        'id' => $record->id,
-                        'date' => $record->date,
-                        'day' => $record->day,
-                        'reason' => $record->reason,
-                        'check_in_time' => $record->check_in_time,
-                        'check_out_time' => $record->check_out_time,
-                        'review_notes' => $record->review_notes,
-                    ];
-                })->toArray(),
-            ];
-        })
-        ->values()
-        ->toArray();
-}
+    /**
+     * Get the count and list of attendance records by review status for a specific month and year.
+     *
+     * @param int $month
+     * @param int $year
+     * @return array
+     */
+    public function getMonthlyStatusCounts(int $month, int $year)
+    {
+        return AttendanceRecord::with('reviewStatus')
+            ->whereMonth('date', $month)
+            ->whereYear('date', $year)
+            ->get()
+            ->groupBy('review_status_id')
+            ->map(function ($records, $statusId) {
+                return [
+                    'status' => optional($records->first()->reviewStatus)->status ?? 'No Status',
+                    'total' => $records->count(),
+                    'records' => $records->map(function ($record) {
+                        return [
+                            'id' => $record->id,
+                            'date' => $record->date,
+                            'day' => $record->day,
+                            'reason' => $record->reason,
+                            'check_in_time' => $record->check_in_time,
+                            'check_out_time' => $record->check_out_time,
+                            'review_notes' => $record->review_notes,
+                        ];
+                    })->toArray(),
+                ];
+            })
+            ->values()
+            ->toArray();
+    }
 
-public function getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDay)
-{
-    // Log debug information
-    Log::info('Fetching attendance records', [
-        'userId' => $userId,
-        'staffId' => $staffId,
-        'startDay' => $startDay,
-        'lastDay' => $lastDay,
-    ]);
+    public function getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDay)
+    {
+        // Log debug information
+        Log::info('Fetching attendance records', [
+            'userId' => $userId,
+            'staffId' => $staffId,
+            'startDay' => $startDay,
+            'lastDay' => $lastDay,
+        ]);
 
-    // Perform the query
-    $results = DB::table('calendars')
-        ->leftJoin('transit', function ($join) use ($staffId) {
-            $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
-                 ->where('transit.staffid', '=', (int) $staffId); // Ensure staffId is cast to integer
-        })
-        ->selectRaw('
+        // Perform the query
+        $results = DB::table('calendars')
+            ->leftJoin('transit', function ($join) use ($staffId) {
+                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
+                    ->where('transit.staffid', '=', (int) $staffId); // Ensure staffId is cast to integer
+            })
+            ->selectRaw('
             calendars.fulldate,
             calendars.year,
             calendars.monthname,
@@ -251,32 +251,97 @@ public function getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $l
                 LIMIT 1
             ) AS statusabsent
         ', [
-            $userId, // idpeg
-            $userId, $userId, $userId, // For reasons
-            $userId, $userId, $userId, // For statuses
-        ])
-        ->whereBetween('calendars.fulldate', [$startDay, $lastDay])
-        ->where('calendars.isweekday', 1)
-        ->where('calendars.isholiday', 0)
-        ->groupBy(
-            'calendars.fulldate',
-            'calendars.year',
-            'calendars.monthname',
-            'calendars.dayname',
-            'calendars.isweekday',
-            'calendars.isholiday',
-            'transit.staffid'
-        )
-        ->orderBy('calendars.fulldate', 'ASC')
-        ->get();
+                $userId, // idpeg
+                $userId,
+                $userId,
+                $userId, // For reasons
+                $userId,
+                $userId,
+                $userId, // For statuses
+            ])
+            ->whereBetween('calendars.fulldate', [$startDay, $lastDay])
+            ->where('calendars.isweekday', 1)
+            ->where('calendars.isholiday', 0)
+            ->groupBy(
+                'calendars.fulldate',
+                'calendars.year',
+                'calendars.monthname',
+                'calendars.dayname',
+                'calendars.isweekday',
+                'calendars.isholiday',
+                'transit.staffid'
+            )
+            ->orderBy('calendars.fulldate', 'ASC')
+            ->get();
 
-    // Log the executed query
-    Log::debug('Executed Attendance Query', DB::getQueryLog());
+        // Log the executed query
+        Log::debug('Executed Attendance Query', DB::getQueryLog());
 
-    return $results;
-}
+        return $results;
+    }
+    public function fetchLateAttendanceRecords(int $userId, string $startDay, string $lastDay): array
+    {
+        $transitSubquery = DB::table('transit')
+            ->select('staffid', DB::raw('DATE(trdate) as trdate'), DB::raw('MIN(trdatetime) as min_trdatetime'))
+            ->where('staffid', '=', $userId)
+            ->whereBetween(DB::raw('DATE(trdate)'), [$startDay, $lastDay])
+            ->groupBy('staffid', DB::raw('DATE(trdate)'));
 
+        $query = DB::table('calendars')
+            ->leftJoinSub($transitSubquery, 'transit_min', function ($join) {
+                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', 'transit_min.trdate');
+            })
+            ->leftJoin('reason_transactions', function ($join) use ($userId) {
+                $join->on('reason_transactions.log_timestamp', '=', 'transit_min.min_trdatetime')
+                    ->where('reason_transactions.employee_id', '=', $userId)
+                    ->where('reason_transactions.reason_type_id', '=', 1)
+                    ->whereNull('reason_transactions.deleted_at');
+            })
+            ->leftJoin('reasons', 'reason_transactions.reason_id', '=', 'reasons.id')
+            ->select(
+                'calendars.fulldate',
+                DB::raw('YEAR(calendars.fulldate) AS year'),
+                DB::raw('MONTHNAME(calendars.fulldate) AS monthname'),
+                DB::raw('DAYNAME(calendars.fulldate) AS dayname'),
+                'calendars.isweekday',
+                'calendars.isholiday',
+                'transit_min.staffid',
+                DB::raw("$userId AS idpeg"),
+                'transit_min.min_trdatetime AS datetimein',
+                DB::raw('DATE_FORMAT(transit_min.min_trdatetime, "%T") AS timein'),
+                DB::raw('CASE WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND TIME(transit_min.min_trdatetime) >= "09:01:00" THEN 1 ELSE 0 END AS latein'),
+                'reasons.description AS latereason',
+                'reason_transactions.status AS statuslate'
+            )
+            ->whereBetween('calendars.fulldate', [$startDay, $lastDay])
+            ->where('calendars.isweekday', 1)
+            ->where('calendars.isholiday', 0)
+            ->whereNotNull('transit_min.min_trdatetime')
+            ->havingRaw('TIME(transit_min.min_trdatetime) >= "09:01:00"')
+            ->orderBy('calendars.fulldate', 'ASC');
 
+        $records = $query->get();
+
+        return $records->map(function ($record) {
+            $record->date_display = date('d/m/Y', strtotime($record->fulldate));
+            $record->box_color = $this->determineBoxColor($record->statuslate);
+            return $record;
+        })->toArray();
+    }
+
+    private function determineBoxColor($statusLate)
+    {
+        if ($statusLate == 4) {
+            return '#28a745'; // Green
+        } elseif ($statusLate == 2) {
+            return '#17a2b8'; // Blue
+        } elseif (in_array($statusLate, [1, 3, 5])) {
+            return '#ffc107'; // Yellow
+        } else {
+            return '#dc3545'; // Red
+        }
+    }
+    
 
 
 }

@@ -82,5 +82,17 @@ class AttendanceRecordService
         return $this->attendanceRecordRepository->getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDayofCurrentMonth);
     }
 
+    public function getLateAttendanceRecords(int $userId): array
+    {
+        $dayNow = now()->format('d');
+        $firstDayOfCurrentMonth = now()->startOfMonth()->toDateTimeString();
+        $firstDayOfPreviousMonth = now()->subMonthNoOverflow()->startOfMonth()->toDateTimeString();
+        $lastDayOfCurrentMonth = now()->endOfMonth()->toDateTimeString();
+
+        $startDay = $dayNow > 10 ? $firstDayOfCurrentMonth : $firstDayOfPreviousMonth;
+
+        return $this->attendanceRecordRepository->fetchLateAttendanceRecords($userId, $startDay, $lastDayOfCurrentMonth);
+    }
+
 
 }

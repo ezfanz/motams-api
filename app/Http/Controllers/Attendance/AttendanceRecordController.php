@@ -9,6 +9,7 @@ use App\Helpers\ResponseHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\AttendanceRecordResource;
 use App\Models\User;
 
@@ -72,8 +73,9 @@ class AttendanceRecordController extends Controller
 
     public function listDatangLewat(): JsonResponse
     {
-        $records = $this->attendanceRecordService->getRecordsByStatus(2); // Status ID for Datang Lewat
-        return ResponseHelper::success(AttendanceRecordResource::collection($records), 'Datang Lewat records retrieved successfully');
+        $userId = Auth::id();
+        $records = $this->attendanceRecordService->getLateAttendanceRecords($userId);
+        return ResponseHelper::success($records, 'Datang Lewat records retrieved successfully');
     }
 
     public function listBalikAwal(): JsonResponse
