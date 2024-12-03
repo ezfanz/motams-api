@@ -17,6 +17,6 @@ class Colour extends Model
 
     public function colorChanges()
     {
-        return $this->hasMany(ColorChange::class);
+        return $this->hasMany(ColourChange::class);
     }
 }

@@ -30,6 +30,6 @@ class ColourChange extends Model
 
     public function color()
     {
-        return $this->belongsTo(Color::class);
+        return $this->belongsTo(Colour::class);
     }
 }

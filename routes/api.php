@@ -12,6 +12,8 @@ use App\Http\Controllers\Attendance\VerificationController;
 use App\Http\Controllers\Leave\OfficeLeaveRequestController;
 use App\Http\Controllers\Leave\LeaveTypeController;
 use App\Http\Controllers\Leave\OfficeLeaveApprovalController;
+use App\Http\Controllers\Colour\ColourChangeController;
+
 
 /**
  * Public Routes for Authentication
@@ -37,6 +39,8 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
      */
     Route::prefix('users')->group(function () {
         Route::get('/profile', [UserController::class, 'profile'])->name('user.profile');
+        Route::get('/colour-changes', [ColourChangeController::class, 'getUserColourChanges']);
+
     });
     Route::apiResource('users', UserController::class);
 
