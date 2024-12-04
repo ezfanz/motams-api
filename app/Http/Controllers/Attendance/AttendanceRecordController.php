@@ -67,8 +67,9 @@ class AttendanceRecordController extends Controller
 
     public function listTidakHadir(): JsonResponse
     {
-        $records = $this->attendanceRecordService->getRecordsByStatus(1); // Status ID for Tidak Hadir
-        return ResponseHelper::success(AttendanceRecordResource::collection($records), 'Tidak Hadir records retrieved successfully');
+        $userId = Auth::id(); // Fetch authenticated user ID
+        $records = $this->attendanceRecordService->getAbsentRecords($userId);
+        return ResponseHelper::success($records, 'Tidak Hadir records retrieved successfully');
     }
 
     public function listDatangLewat(): JsonResponse

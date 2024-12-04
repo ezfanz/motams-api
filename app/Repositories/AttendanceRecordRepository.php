@@ -329,13 +329,62 @@ class AttendanceRecordRepository
         })->toArray();
     }
 
-    private function determineBoxColor($statusLate)
+    public function fetchAbsentRecords(int $userId, string $startDay, string $lastDay): array
     {
-        if ($statusLate == 4) {
+        // Subquery to get absence reasons
+        $reasonSubquery = DB::table('reason_transactions')
+            ->join('reasons', 'reason_transactions.reason_id', '=', 'reasons.id')
+            ->select('reason_transactions.log_timestamp', 'reasons.description AS absentreasont', 'reason_transactions.status AS statusabsent')
+            ->where('reason_transactions.employee_id', '=', $userId)
+            ->where('reason_transactions.reason_type_id', '=', 3)
+            ->whereNull('reason_transactions.deleted_at');
+    
+        // Main query for calendars and absence details
+        $query = DB::table('calendars')
+            ->leftJoin('transit', function ($join) use ($userId) {
+                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
+                    ->where('transit.staffid', '=', $userId)
+                    ->whereNull('transit.trdatetime'); // Null trdatetime indicates absence
+            })
+            ->leftJoinSub($reasonSubquery, 'reasons_sub', function ($join) {
+                $join->on('calendars.fulldate', '=', 'reasons_sub.log_timestamp');
+            })
+            ->select(
+                'calendars.fulldate',
+                DB::raw('YEAR(calendars.fulldate) AS year'),
+                DB::raw('MONTHNAME(calendars.fulldate) AS monthname'),
+                DB::raw('DAYNAME(calendars.fulldate) AS dayname'),
+                'calendars.isweekday',
+                'calendars.isholiday',
+                'transit.staffid',
+                DB::raw("$userId AS idpeg"),
+                'reasons_sub.absentreasont',
+                'reasons_sub.statusabsent'
+            )
+            ->whereBetween('calendars.fulldate', [$startDay, $lastDay])
+            ->where('calendars.isweekday', 1)
+            ->where('calendars.isholiday', 0)
+            ->whereNull('transit.trdatetime') // Filter for absent dates
+            ->groupBy('calendars.fulldate', 'calendars.isweekday', 'calendars.isholiday', 'transit.staffid', 'reasons_sub.absentreasont', 'reasons_sub.statusabsent')
+            ->orderBy('calendars.fulldate', 'ASC');
+    
+        // Fetch records and map additional fields
+        $records = $query->get();
+    
+        return $records->map(function ($record) {
+            $record->date_display = date('d/m/Y', strtotime($record->fulldate));
+            $record->box_color = $this->determineBoxColor($record->statusabsent);
+            return $record;
+        })->toArray();
+    }
+
+    private function determineBoxColor($status)
+    {
+        if ($status == 4) {
             return '#28a745'; // Green
-        } elseif ($statusLate == 2) {
+        } elseif ($status == 2) {
             return '#17a2b8'; // Blue
-        } elseif (in_array($statusLate, [1, 3, 5])) {
+        } elseif (in_array($status, [1, 3, 5])) {
             return '#ffc107'; // Yellow
         } else {
             return '#dc3545'; // Red

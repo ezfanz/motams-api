@@ -6,6 +6,7 @@ use App\Repositories\AttendanceRecordRepository;
 use App\Helpers\ResponseHelper;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Log;
+use Carbon\Carbon;
 
 class AttendanceRecordService
 {
@@ -92,6 +93,18 @@ class AttendanceRecordService
         $startDay = $dayNow > 10 ? $firstDayOfCurrentMonth : $firstDayOfPreviousMonth;
 
         return $this->attendanceRecordRepository->fetchLateAttendanceRecords($userId, $startDay, $lastDayOfCurrentMonth);
+    }
+
+    public function getAbsentRecords(int $userId): array
+    {
+        $dayNow = Carbon::now()->format('d');
+        $firstDayOfCurrentMonth = Carbon::now()->startOfMonth()->toDateTimeString();
+        $firstDayOfPreviousMonth = Carbon::now()->subMonthNoOverflow()->startOfMonth()->toDateTimeString();
+        $lastDayOfCurrentMonth = Carbon::now()->endOfMonth()->toDateTimeString();
+
+        $startDay = $dayNow > 10 ? $firstDayOfCurrentMonth : $firstDayOfPreviousMonth;
+
+        return $this->attendanceRecordRepository->fetchAbsentRecords($userId, $startDay, $lastDayOfCurrentMonth);
     }
 
 
