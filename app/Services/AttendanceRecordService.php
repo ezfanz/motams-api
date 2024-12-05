@@ -107,5 +107,17 @@ class AttendanceRecordService
         return $this->attendanceRecordRepository->fetchAbsentRecords($userId, $startDay, $lastDayOfCurrentMonth);
     }
 
+    public function getEarlyLeaveRecords(int $userId): array
+    {
+        $dayNow = now()->format('d');
+        $firstDayOfCurrentMonth = now()->startOfMonth()->toDateTimeString();
+        $firstDayOfPreviousMonth = now()->subMonthNoOverflow()->startOfMonth()->toDateTimeString();
+        $lastDayOfCurrentMonth = now()->endOfMonth()->toDateTimeString();
+
+        $startDay = $dayNow > 10 ? $firstDayOfCurrentMonth : $firstDayOfPreviousMonth;
+
+        return $this->attendanceRecordRepository->fetchEarlyLeaveRecords($userId, $startDay, $lastDayOfCurrentMonth);
+    }
+
 
 }

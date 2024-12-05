@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
+use App\Models\User;
 
 
 class AttendanceRecordRepository
@@ -374,6 +375,61 @@ class AttendanceRecordRepository
         return $records->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->fulldate));
             $record->box_color = $this->determineBoxColor($record->statusabsent);
+            return $record;
+        })->toArray();
+    }
+
+    public function fetchEarlyLeaveRecords(int $userId, string $startDay, string $lastDay): array
+    {
+        // Fetch staff ID from user
+        $staffId = User::withoutTrashed()
+            ->where('id', $userId)
+            ->value('staff_id');
+    
+        // Query the `lateinoutview` to fetch early leave records
+        $query = DB::table('lateinoutview')
+            ->select(
+                'lateinoutview.staffid',
+                'lateinoutview.day',
+                'lateinoutview.trdate',
+                'lateinoutview.isweekday',
+                'lateinoutview.isholiday',
+                'lateinoutview.datetimeout',
+                DB::raw("DATE_FORMAT(lateinoutview.datetimeout, '%T') AS timeout"),
+                'lateinoutview.earlyout',
+                DB::raw("$userId AS idpeg"),
+                DB::raw("
+                (SELECT reasons.description
+                 FROM reason_transactions
+                 LEFT JOIN reasons ON reason_transactions.reason_id = reasons.id
+                 WHERE reason_transactions.log_timestamp = lateinoutview.datetimeout
+                   AND reason_transactions.employee_id = $userId
+                   AND reason_transactions.reason_type_id = 2
+                   AND reason_transactions.deleted_at IS NULL
+                ) AS earlyreason"),
+                DB::raw("
+                (SELECT reason_transactions.status
+                 FROM reason_transactions
+                 WHERE reason_transactions.log_timestamp = lateinoutview.datetimeout
+                   AND reason_transactions.employee_id = $userId
+                   AND reason_transactions.reason_type_id = 2
+                   AND reason_transactions.deleted_at IS NULL
+                ) AS statusearly")
+            )
+            ->where('lateinoutview.staffid', $staffId)
+            ->whereBetween('lateinoutview.trdate', [$startDay, $lastDay])
+            ->where('lateinoutview.earlyout', 1)
+            ->where('lateinoutview.isweekday', 1)
+            ->where('lateinoutview.isholiday', 0)
+            ->orderBy('lateinoutview.trdate', 'ASC');
+    
+        // Fetch records
+        $records = $query->get();
+    
+        // Map and format records
+        return $records->map(function ($record) {
+            $record->date_display = date('d/m/Y', strtotime($record->trdate));
+            $record->box_color = $this->determineBoxColor($record->statusearly);
             return $record;
         })->toArray();
     }

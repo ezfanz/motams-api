@@ -81,8 +81,9 @@ class AttendanceRecordController extends Controller
 
     public function listBalikAwal(): JsonResponse
     {
-        $records = $this->attendanceRecordService->getRecordsByStatus(3); // Status ID for Balik Awal
-        return ResponseHelper::success(AttendanceRecordResource::collection($records), 'Balik Awal records retrieved successfully');
+        $userId = Auth::id();
+        $records = $this->attendanceRecordService->getEarlyLeaveRecords($userId); // Fetch early leave records
+        return ResponseHelper::success($records, 'Balik Awal records retrieved successfully');
     }
 
     public function getAttendanceLogs($idpeg)
