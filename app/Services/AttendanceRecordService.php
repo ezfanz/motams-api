@@ -83,41 +83,29 @@ class AttendanceRecordService
         return $this->attendanceRecordRepository->getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDayofCurrentMonth);
     }
 
-    public function getLateAttendanceRecords(int $userId): array
+    public function getAttendanceRecords(int $userId, string $type): array
     {
+        // Calculate the date range
         $dayNow = now()->format('d');
         $firstDayOfCurrentMonth = now()->startOfMonth()->toDateTimeString();
         $firstDayOfPreviousMonth = now()->subMonthNoOverflow()->startOfMonth()->toDateTimeString();
         $lastDayOfCurrentMonth = now()->endOfMonth()->toDateTimeString();
-
+    
         $startDay = $dayNow > 10 ? $firstDayOfCurrentMonth : $firstDayOfPreviousMonth;
-
-        return $this->attendanceRecordRepository->fetchLateAttendanceRecords($userId, $startDay, $lastDayOfCurrentMonth);
+    
+        // Fetch records based on the type
+        switch ($type) {
+            case 'late':
+                return $this->attendanceRecordRepository->fetchLateAttendanceRecords($userId, $startDay, $lastDayOfCurrentMonth);
+            case 'absent':
+                return $this->attendanceRecordRepository->fetchAbsentRecords($userId, $startDay, $lastDayOfCurrentMonth);
+            case 'back-early':
+                return $this->attendanceRecordRepository->fetchEarlyLeaveRecords($userId, $startDay, $lastDayOfCurrentMonth);
+            default:
+                throw new \InvalidArgumentException('Invalid attendance record type specified.');
+        }
     }
-
-    public function getAbsentRecords(int $userId): array
-    {
-        $dayNow = Carbon::now()->format('d');
-        $firstDayOfCurrentMonth = Carbon::now()->startOfMonth()->toDateTimeString();
-        $firstDayOfPreviousMonth = Carbon::now()->subMonthNoOverflow()->startOfMonth()->toDateTimeString();
-        $lastDayOfCurrentMonth = Carbon::now()->endOfMonth()->toDateTimeString();
-
-        $startDay = $dayNow > 10 ? $firstDayOfCurrentMonth : $firstDayOfPreviousMonth;
-
-        return $this->attendanceRecordRepository->fetchAbsentRecords($userId, $startDay, $lastDayOfCurrentMonth);
-    }
-
-    public function getEarlyLeaveRecords(int $userId): array
-    {
-        $dayNow = now()->format('d');
-        $firstDayOfCurrentMonth = now()->startOfMonth()->toDateTimeString();
-        $firstDayOfPreviousMonth = now()->subMonthNoOverflow()->startOfMonth()->toDateTimeString();
-        $lastDayOfCurrentMonth = now()->endOfMonth()->toDateTimeString();
-
-        $startDay = $dayNow > 10 ? $firstDayOfCurrentMonth : $firstDayOfPreviousMonth;
-
-        return $this->attendanceRecordRepository->fetchEarlyLeaveRecords($userId, $startDay, $lastDayOfCurrentMonth);
-    }
+    
 
 
 }

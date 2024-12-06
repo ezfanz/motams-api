@@ -12,6 +12,7 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\AttendanceRecordResource;
 use App\Models\User;
+use Illuminate\Http\Request;
 
 
 class AttendanceRecordController extends Controller
@@ -65,26 +66,33 @@ class AttendanceRecordController extends Controller
         }
     }
 
-    public function listTidakHadir(): JsonResponse
-    {
-        $userId = Auth::id(); // Fetch authenticated user ID
-        $records = $this->attendanceRecordService->getAbsentRecords($userId);
-        return ResponseHelper::success($records, 'Tidak Hadir records retrieved successfully');
-    }
-
-    public function listDatangLewat(): JsonResponse
+    public function listAttendanceRecords(Request $request): JsonResponse
     {
         $userId = Auth::id();
-        $records = $this->attendanceRecordService->getLateAttendanceRecords($userId);
-        return ResponseHelper::success($records, 'Datang Lewat records retrieved successfully');
+        $type = $request->input('type'); // 'late', 'early', or 'absent'
+
+        try {
+            // Get attendance records based on the type
+            $records = $this->attendanceRecordService->getAttendanceRecords($userId, $type);
+
+            // Determine the success message based on the type
+            $message = match ($type) {
+                'late' => 'Datang Lewat records retrieved successfully',
+                'back-early' => 'Balik Awal records retrieved successfully',
+                'absent' => 'Tidak Hadir records retrieved successfully',
+                default => throw new \InvalidArgumentException('Invalid type specified.')
+            };
+
+            return ResponseHelper::success($records, $message);
+        } catch (\InvalidArgumentException $e) {
+            // Handle invalid type error
+            return ResponseHelper::error($e->getMessage());
+        } catch (\Exception $e) {
+            // Handle any other unexpected errors
+            return ResponseHelper::error('Failed to retrieve attendance records.', $e->getCode());
+        }
     }
 
-    public function listBalikAwal(): JsonResponse
-    {
-        $userId = Auth::id();
-        $records = $this->attendanceRecordService->getEarlyLeaveRecords($userId); // Fetch early leave records
-        return ResponseHelper::success($records, 'Balik Awal records retrieved successfully');
-    }
 
     public function getAttendanceLogs($idpeg)
     {

@@ -54,11 +54,12 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
      */
     Route::prefix('attendance-records')->group(function () {
         // Custom routes for specific statuses
-        Route::get('/tidak-hadir', [AttendanceRecordController::class, 'listTidakHadir']);
-        Route::get('/datang-lewat', [AttendanceRecordController::class, 'listDatangLewat']);
-        Route::get('/balik-awal', [AttendanceRecordController::class, 'listBalikAwal']);
+        // Route::get('/tidak-hadir', [AttendanceRecordController::class, 'listTidakHadir']);
+        // Route::get('/datang-lewat', [AttendanceRecordController::class, 'listDatangLewat']);
+        // Route::get('/balik-awal', [AttendanceRecordController::class, 'listBalikAwal']);
+        Route::get('/list', [AttendanceRecordController::class, 'listAttendanceRecords']);
         Route::get('/status/{idpeg}', [AttendanceRecordController::class, 'getAttendanceLogs'])->where('idpeg', '[0-9]+');
-
+        Route::get('/attendance-records/review-count', [AttendanceRecordController::class, 'getReviewCount']);
 
         // General resource routes
         Route::apiResource('/', AttendanceRecordController::class);
