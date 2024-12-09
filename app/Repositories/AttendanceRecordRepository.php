@@ -8,6 +8,7 @@ use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use App\Models\User;
+use App\Models\ReasonTransaction;
 
 
 class AttendanceRecordRepository
@@ -339,7 +340,7 @@ class AttendanceRecordRepository
             ->where('reason_transactions.employee_id', '=', $userId)
             ->where('reason_transactions.reason_type_id', '=', 3)
             ->whereNull('reason_transactions.deleted_at');
-    
+
         // Main query for calendars and absence details
         $query = DB::table('calendars')
             ->leftJoin('transit', function ($join) use ($userId) {
@@ -368,10 +369,10 @@ class AttendanceRecordRepository
             ->whereNull('transit.trdatetime') // Filter for absent dates
             ->groupBy('calendars.fulldate', 'calendars.isweekday', 'calendars.isholiday', 'transit.staffid', 'reasons_sub.absentreasont', 'reasons_sub.statusabsent')
             ->orderBy('calendars.fulldate', 'ASC');
-    
+
         // Fetch records and map additional fields
         $records = $query->get();
-    
+
         return $records->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->fulldate));
             $record->box_color = $this->determineBoxColor($record->statusabsent);
@@ -385,7 +386,7 @@ class AttendanceRecordRepository
         $staffId = User::withoutTrashed()
             ->where('id', $userId)
             ->value('staff_id');
-    
+
         // Query the `lateinoutview` to fetch early leave records
         $query = DB::table('lateinoutview')
             ->select(
@@ -422,10 +423,10 @@ class AttendanceRecordRepository
             ->where('lateinoutview.isweekday', 1)
             ->where('lateinoutview.isholiday', 0)
             ->orderBy('lateinoutview.trdate', 'ASC');
-    
+
         // Fetch records
         $records = $query->get();
-    
+
         // Map and format records
         return $records->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->trdate));
@@ -446,7 +447,63 @@ class AttendanceRecordRepository
             return '#dc3545'; // Red
         }
     }
-    
+
+
+    /**
+     * Get review count for admin roles.
+     *
+     * @param int $dayNow
+     * @param string $currentMonth
+     * @param string $lastMonth
+     * @return int
+     */
+    public function getAdminReviewCount(int $dayNow, string $currentMonth, string $lastMonth): int
+    {
+        return $dayNow > 10
+            ? ReasonTransaction::whereNull('deleted_at') // Soft delete condition
+                ->where('status', 1)
+                ->whereMonth('log_timestamp', now()->month)
+                ->count()
+            : ReasonTransaction::whereNull('deleted_at') // Soft delete condition
+                ->where('status', 1)
+                ->where(function ($query) use ($currentMonth, $lastMonth) {
+                    $query->whereMonth('log_timestamp', now()->month)
+                        ->orWhere(function ($query) use ($lastMonth) {
+                            $query->whereMonth('log_timestamp', now()->subMonth()->month);
+                        });
+                })->count();
+    }
+
+    /**
+     * Get review count for reviewer roles.
+     *
+     * @param int $userId
+     * @param int $dayNow
+     * @param string $currentMonth
+     * @param string $lastMonth
+     * @return int
+     */
+    public function getReviewerReviewCount(int $userId, int $dayNow, string $currentMonth, string $lastMonth): int
+    {
+        return $dayNow > 10
+            ? ReasonTransaction::leftJoin('users', 'reason_transactions.employee_id', '=', 'users.id')
+                ->where('reason_transactions.status', 1)
+                ->where('users.reviewing_officer_id', $userId)
+                ->where('reason_transactions.is_deleted', '!=', 1)
+                ->whereMonth('reason_transactions.log_timestamp', now()->month)
+                ->count()
+            : ReasonTransaction::leftJoin('users', 'reason_transactions.employee_id', '=', 'users.id')
+                ->where('reason_transactions.status', 1)
+                ->where('users.reviewing_officer_id', $userId)
+                ->where('reason_transactions.is_deleted', '!=', 1)
+                ->where(function ($query) use ($currentMonth, $lastMonth) {
+                    $query->whereMonth('reason_transactions.log_timestamp', now()->month)
+                        ->orWhere(function ($query) use ($lastMonth) {
+                            $query->whereMonth('reason_transactions.log_timestamp', now()->subMonth()->month);
+                        });
+                })->count();
+    }
+
 
 
 }

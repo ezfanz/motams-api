@@ -13,6 +13,9 @@ use App\Http\Controllers\Leave\OfficeLeaveRequestController;
 use App\Http\Controllers\Leave\LeaveTypeController;
 use App\Http\Controllers\Leave\OfficeLeaveApprovalController;
 use App\Http\Controllers\Colour\ColourChangeController;
+use App\Http\Controllers\Attendance\AttendanceApprovalController;
+use App\Http\Controllers\Attendance\AttendanceStatusController;
+
 
 
 /**
@@ -59,7 +62,7 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
         // Route::get('/balik-awal', [AttendanceRecordController::class, 'listBalikAwal']);
         Route::get('/list', [AttendanceRecordController::class, 'listAttendanceRecords']);
         Route::get('/status/{idpeg}', [AttendanceRecordController::class, 'getAttendanceLogs'])->where('idpeg', '[0-9]+');
-        Route::get('/attendance-records/review-count', [AttendanceRecordController::class, 'getReviewCount']);
+        Route::get('/review-count', [AttendanceRecordController::class, 'getReviewCounts']);
 
         // General resource routes
         Route::apiResource('/', AttendanceRecordController::class);
@@ -116,10 +119,25 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
     /**
      * Attendance Verification
      */
-    Route::prefix('office-verifications')->group(function () {
+    Route::prefix('attendance-verifications')->group(function () {
         Route::get('/', [VerificationController::class, 'index']);
         Route::get('/status-options', [VerificationController::class, 'getStatusOptions']);
         Route::post('/batch-update', [VerificationController::class, 'batchUpdate']);
         Route::get('/summary', [VerificationController::class, 'getMonthlySummary']);
+    });
+
+    /**
+     * Attendance Approval
+     */
+    Route::prefix('attendance-approval')->group(function () {
+        Route::get('/list', [AttendanceApprovalController::class, 'getApprovalList']);
+
+    });
+
+    /**
+     * Attendance Status
+     */
+    Route::prefix('attendance-status')->group(function () {
+        Route::get('/list', [AttendanceStatusController::class, 'getStatusList']);
     });
 });

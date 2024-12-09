@@ -12,7 +12,9 @@ use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Auth;
 use App\Http\Resources\AttendanceRecordResource;
 use App\Models\User;
+use App\Models\ReasonTransaction;
 use Illuminate\Http\Request;
+use Carbon\Carbon;
 
 
 class AttendanceRecordController extends Controller
@@ -118,6 +120,32 @@ class AttendanceRecordController extends Controller
 
         return ResponseHelper::success($logs, 'Attendance logs retrieved successfully');
     }
+
+    /**
+     * Get review counts for the authenticated user based on their role.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getReviewCounts(Request $request): JsonResponse
+    {
+        $userId = Auth::id();
+        $roleId = Auth::user()->roles()->first()?->id; // Assuming roles are managed via Spatie package
+
+        if (!$roleId) {
+            return ResponseHelper::error('Role not found for the authenticated user.', 400);
+        }
+
+        // try {
+            $reviewCount = $this->attendanceRecordService->getReviewCount($userId, $roleId);
+            return ResponseHelper::success(['review_count' => $reviewCount], 'Review count retrieved successfully');
+        // } catch (\InvalidArgumentException $e) {
+        //     return ResponseHelper::error($e->getMessage(), 400);
+        // } catch (\Exception $e) {
+        //     return ResponseHelper::error('Failed to retrieve review counts.', 500);
+        // }
+    }
+
 
 
 }

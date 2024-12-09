@@ -90,9 +90,9 @@ class AttendanceRecordService
         $firstDayOfCurrentMonth = now()->startOfMonth()->toDateTimeString();
         $firstDayOfPreviousMonth = now()->subMonthNoOverflow()->startOfMonth()->toDateTimeString();
         $lastDayOfCurrentMonth = now()->endOfMonth()->toDateTimeString();
-    
+
         $startDay = $dayNow > 10 ? $firstDayOfCurrentMonth : $firstDayOfPreviousMonth;
-    
+
         // Fetch records based on the type
         switch ($type) {
             case 'late':
@@ -105,7 +105,30 @@ class AttendanceRecordService
                 throw new \InvalidArgumentException('Invalid attendance record type specified.');
         }
     }
-    
 
+    /**
+     * Get review count based on the user role and current date range.
+     *
+     * @param int $userId
+     * @param int $role
+     * @return int
+     * @throws \InvalidArgumentException
+     */
+    public function getReviewCount(int $userId, int $role): int
+    {
+        $dayNow = Carbon::now()->format('d');
+        $currentMonth = Carbon::now()->format('Y-m');
+        $lastMonth = Carbon::now()->subMonth()->format('Y-m');
+
+        if (in_array($role, [3, 2])) { // Admin and Pentadbir
+            return $this->attendanceRecordRepository->getAdminReviewCount($dayNow, $currentMonth, $lastMonth);
+        }
+
+        if (in_array($role, [5, 7, 8, 10, 11, 13, 15, 17])) { // Penyemak roles
+            return $this->attendanceRecordRepository->getReviewerReviewCount($userId, $dayNow, $currentMonth, $lastMonth);
+        }
+
+        throw new \InvalidArgumentException('Invalid role specified');
+    }
 
 }

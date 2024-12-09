@@ -82,10 +82,11 @@ class ReasonTransaction extends Model
     }
 
     /**
-     * Relationship with Reason Type.
+     * Relationship with ReasonType
      */
     public function reasonType()
     {
-        return $this->belongsTo(Reason::class, 'reason_type_id');
+        return $this->belongsTo(ReasonType::class, 'reason_type_id');
     }
+
 }
