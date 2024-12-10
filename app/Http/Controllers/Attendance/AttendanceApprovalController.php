@@ -21,13 +21,12 @@ class AttendanceApprovalController extends Controller
     {
         $userId = Auth::id(); // Authenticated user ID
         $roleId = Auth::user()->roles()->first()?->id; // User role ID
-        $dayNow = now()->format('d');
-        $currentMonth = now()->format('Y-m');
-        $lastMonth = now()->subMonthNoOverflow()->format('Y-m');
+        $monthSearch = $request->query('month', now()->format('Y-m'));
 
         // Call the service to fetch the approval list
-        $approvals = $this->service->fetchApprovalList($userId, $roleId, $dayNow, $currentMonth, $lastMonth);
+        $approvalList = $this->service->getApprovalList($userId, $roleId, $monthSearch);
 
-        return ResponseHelper::success($approvals, 'Approval list retrieved successfully');
+        return ResponseHelper::success($approvalList, 'Approval list retrieved successfully');
     }
+
 }
