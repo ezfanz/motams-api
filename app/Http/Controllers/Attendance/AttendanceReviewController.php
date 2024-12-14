@@ -6,9 +6,11 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\Attendance\AttendanceReviewIndexRequest;
 use App\Http\Requests\Attendance\BatchReviewRequest;
 use App\Http\Requests\Attendance\AttendanceStatusSummaryRequest;
+use App\Http\Requests\Attendance\ProcessAttendanceReviewRequest;
 use App\Services\AttendanceReviewService;
 use App\Helpers\ResponseHelper;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Support\Facades\Auth;
 
 class AttendanceReviewController extends Controller
 {
@@ -35,5 +37,35 @@ class AttendanceReviewController extends Controller
     {
         $summary = $this->service->getMonthlyStatusSummary($request->validated()['month'], $request->validated()['year']);
         return ResponseHelper::success($summary, 'Attendance status summary retrieved successfully');
+    }
+
+   /**
+     * API to process attendance review.
+     */
+    public function processReview(ProcessAttendanceReviewRequest $request)
+    {
+        $validated = $request->validated();
+        $userId = Auth::id();
+        $result = $this->service->processReview($validated, $userId);
+
+        if ($result['status']) {
+            return response()->json(['status' => 'success', 'message' => $result['message']], 200);
+        }
+
+        return response()->json(['status' => 'error', 'message' => $result['message']], 400);
+    }
+
+    /**
+     * API to fetch review details by ID.
+     */
+    public function getReviewDetails(int $id)
+    {
+        $details = $this->service->getReviewDetails($id);
+
+        if (!$details) {
+            return response()->json(['status' => 'error', 'message' => 'Review not found.'], 404);
+        }
+
+        return response()->json(['status' => 'success', 'data' => $details], 200);
     }
 }

@@ -109,6 +109,8 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
         Route::get('/', [AttendanceReviewController::class, 'index'])->name('attendance-reviews.index');
         Route::post('/batch-update', [AttendanceReviewController::class, 'batchUpdate'])->name('attendance-reviews.batch-update');
         Route::get('/monthly-status-summary', [AttendanceReviewController::class, 'getMonthlyStatusSummary'])->name('attendance-status-summary.index');
+        Route::post('/process', [AttendanceReviewController::class, 'processReview'])->name('attendance-reviews.process'); // New API
+
     });
 
     /**
