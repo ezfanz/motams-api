@@ -5,8 +5,10 @@ namespace App\Http\Controllers\Attendance;
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use App\Http\Requests\Attendance\BatchVerificationRequest;
+use App\Http\Requests\Attendance\BatchApproveRequest;
 use App\Services\VerificationService;
 use App\Helpers\ResponseHelper;
+use Illuminate\Support\Facades\Auth;
 
 
 class VerificationController extends Controller
@@ -44,5 +46,21 @@ class VerificationController extends Controller
     {
         $summary = $this->verificationService->getMonthlyStatusSummary($request->query('month'), $request->query('year'));
         return ResponseHelper::success($summary, 'Monthly verification summary retrieved successfully');
+    }
+
+    /**
+     * Batch approval process for attendance verification.
+     */
+    public function batchApprove(BatchApproveRequest $request)
+    {
+        $validated = $request->validated();
+        $userId = Auth::id(); // Authenticated user ID
+        $response = $this->verificationService->processBatchApproval($validated, $userId);
+
+        if ($response['status']) {
+            return response()->json(['status' => 'success', 'message' => $response['message']], 200);
+        }
+
+        return response()->json(['status' => 'error', 'message' => $response['message']], 400);
     }
 }

@@ -7,6 +7,13 @@ use Illuminate\Database\Eloquent\Collection;
 
 class OfficeLeaveRequestRepository
 {
+    protected $model;
+
+    public function __construct(OfficeLeaveRequest $model)
+    {
+        $this->model = $model;
+    }
+
     /**
      * Get all office leave requests.
      *
@@ -32,11 +39,11 @@ class OfficeLeaveRequestRepository
      * Create a new office leave request.
      *
      * @param array $data
-     * @return OfficeLeaveRequest
+     * @return OfficeLeaveRequest|null
      */
-    public function create(array $data): OfficeLeaveRequest
+    public function create(array $data): ?OfficeLeaveRequest
     {
-        return OfficeLeaveRequest::create($data);
+        return $this->model->create($data);
     }
 
     /**

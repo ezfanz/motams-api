@@ -43,17 +43,48 @@ class OfficeLeaveRequestService
     }
 
     /**
-     * Create a new leave request with duration.
+     * Create a new leave request.
      *
+     * @param int $userId
      * @param array $data
-     * @return OfficeLeaveRequest
+     * @return array
      */
-    public function createLeaveRequest(array $data): OfficeLeaveRequest
+    public function createLeaveRequest(int $userId, array $data): array
     {
-        $data['created_by'] = Auth::id();
-        $leaveRequest = $this->repository->create($data);
-        return $this->addDuration($leaveRequest);
+        $leaveData = [
+            'created_by' => $userId,
+            'leave_type_id' => $data['jenis'],
+            'date' => $data['date'] ?? Carbon::now()->format('Y-m-d'), // Set default date if not provided
+            'start_date' => $data['start_date'],
+            'end_date' => $data['jenis'] == 1 ? $data['end_date'] : $data['start_date'],
+            'day' => $data['day'] ?? null,
+            'start_time' => $data['start_time'] ?? null,
+            'end_time' => $data['end_time'] ?? null,
+            'total_days' => $data['total_days'] ?? null,
+            'total_hours' => $data['total_hours'] ?? null,
+            'reason' => $data['reason'],
+            'status' => 15,
+            'approval_status_id' => null,
+            'approval_notes' => null,
+            'created_at' => Carbon::now(),
+            'updated_at' => Carbon::now(),
+        ];
+
+        $leaveRequest = $this->repository->create($leaveData);
+
+        if ($leaveRequest) {
+            return [
+                'status' => 'success',
+                'message' => 'The leave request was successfully saved and sent to the approver for review.',
+            ];
+        }
+
+        return [
+            'status' => 'error',
+            'message' => 'Failed to save the leave request.',
+        ];
     }
+
 
     /**
      * Update an existing leave request with duration.

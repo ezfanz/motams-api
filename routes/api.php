@@ -11,10 +11,13 @@ use App\Http\Controllers\Attendance\ReviewStatusController;
 use App\Http\Controllers\Attendance\VerificationController;
 use App\Http\Controllers\Leave\OfficeLeaveRequestController;
 use App\Http\Controllers\Leave\LeaveTypeController;
+use App\Http\Controllers\Leave\OfficeLeaveStatusController;
 use App\Http\Controllers\Leave\OfficeLeaveApprovalController;
 use App\Http\Controllers\Colour\ColourChangeController;
 use App\Http\Controllers\Attendance\AttendanceApprovalController;
 use App\Http\Controllers\Attendance\AttendanceStatusController;
+use App\Http\Controllers\Attendance\AttendanceConfirmationController;
+
 
 
 
@@ -85,6 +88,9 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
         // Office Leave Requests
         Route::get('requests/monthly', [OfficeLeaveRequestController::class, 'getByMonth']);
         Route::get('requests/count-approval', [OfficeLeaveRequestController::class, 'countApproval']);
+        Route::post('/approve', [OfficeLeaveApprovalController::class, 'approve'])->name('office-leave.approve');
+        Route::get('/status/list', [OfficeLeaveStatusController::class, 'getLeaveStatus'])->name('office-leave-status.list');
+
 
         Route::apiResource('requests', OfficeLeaveRequestController::class); // Register without additional prefix
 
@@ -109,7 +115,13 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
         Route::get('/', [AttendanceReviewController::class, 'index'])->name('attendance-reviews.index');
         Route::post('/batch-update', [AttendanceReviewController::class, 'batchUpdate'])->name('attendance-reviews.batch-update');
         Route::get('/monthly-status-summary', [AttendanceReviewController::class, 'getMonthlyStatusSummary'])->name('attendance-status-summary.index');
-        Route::post('/process', [AttendanceReviewController::class, 'processReview'])->name('attendance-reviews.process'); // New API
+        Route::post('/process', [AttendanceReviewController::class, 'processReview'])->name('attendance-reviews.process');
+        Route::get('/{id}', [AttendanceReviewController::class, 'getReviewDetails'])->name('attendance-reviews.details');
+        Route::get('/confirmation/{id}', [AttendanceConfirmationController::class, 'getConfirmationDetails'])
+        ->name('attendance-confirmation.details');
+        Route::post('/confirmation/process', [AttendanceConfirmationController::class, 'processConfirmation'])
+        ->name('attendance-confirmation.process');
+        Route::post('/batch-process', [AttendanceReviewController::class, 'batchProcess'])->name('attendance-reviews.batch-process');
 
     });
 
@@ -126,6 +138,7 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
         Route::get('/status-options', [VerificationController::class, 'getStatusOptions']);
         Route::post('/batch-update', [VerificationController::class, 'batchUpdate']);
         Route::get('/summary', [VerificationController::class, 'getMonthlySummary']);
+        Route::post('/batch-approve', [VerificationController::class, 'batchApprove'])->name('attendance-verifications.batch-approve');
     });
 
     /**
@@ -142,4 +155,5 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
     Route::prefix('attendance-status')->group(function () {
         Route::get('/list', [AttendanceStatusController::class, 'getStatusList']);
     });
+
 });

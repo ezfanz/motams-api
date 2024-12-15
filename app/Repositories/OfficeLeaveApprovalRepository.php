@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\OfficeLeaveRequest;
 use App\Models\ReviewStatus;
+use App\Models\User;
 
 class OfficeLeaveApprovalRepository
 {
@@ -61,5 +62,29 @@ class OfficeLeaveApprovalRepository
             })
             ->values()
             ->toArray();
+    }
+
+    /**
+     * Get the role of a user by ID.
+     */
+    public function getUserRole(int $userId): ?int
+    {
+        return User::where('id', $userId)->value('role_id');
+    }
+
+    /**
+     * Update a Single Office Leave Request.
+     */
+    public function updateLeaveRequest(int $leaveId, int $approverId, int $status, string $notes, $timestamp): bool
+    {
+        return OfficeLeaveRequest::where('id', $leaveId)
+            ->update([
+                'pelulus_id' => $approverId,
+                'status_pelulus' => $status,
+                'catatan_pelulus' => $notes,
+                'tkh_kelulusan' => $timestamp,
+                'status' => $status,
+                'pengguna' => $approverId,
+            ]);
     }
 }

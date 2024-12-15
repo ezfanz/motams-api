@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Leave;
 use App\Http\Controllers\Controller;
 use App\Services\OfficeLeaveRequestService;
 use App\Http\Requests\Leave\OfficeLeaveRequestRequest;
+use App\Http\Requests\Leave\OfficeLeaveRequestFormRequest;
 use Illuminate\Http\JsonResponse;
 use App\Helpers\ResponseHelper;
 use Carbon\Carbon;
@@ -32,16 +33,30 @@ class OfficeLeaveRequestController extends Controller
         return ResponseHelper::success($leaveRequests, 'Leave requests retrieved successfully');
     }
 
-    /**
-     * Store a newly created leave request.
+      /**
+     * Store a new office leave request.
      *
-     * @param OfficeLeaveRequestRequest $request
+     * @param OfficeLeaveRequestFormRequest $request
      * @return JsonResponse
      */
-    public function store(OfficeLeaveRequestRequest $request): JsonResponse
+    public function store(OfficeLeaveRequestFormRequest $request): JsonResponse
     {
-        $leaveRequest = $this->service->createLeaveRequest($request->validated());
-        return ResponseHelper::success($leaveRequest, 'Leave request created successfully', 201);
+        $userId = Auth::id();
+        $data = $request->validated();
+
+        $result = $this->service->createLeaveRequest($userId, $data);
+
+        if ($result['status'] === 'success') {
+            return response()->json([
+                'status' => 'success',
+                'message' => $result['message']
+            ], 201);
+        }
+
+        return response()->json([
+            'status' => 'error',
+            'message' => $result['message']
+        ], 400);
     }
 
     /**

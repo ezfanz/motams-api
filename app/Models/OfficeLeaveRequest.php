@@ -60,7 +60,7 @@ class OfficeLeaveRequest extends Model
         return $this->belongsTo(ReviewStatus::class, 'approval_status_id');
     }
 
-      /**
+    /**
      * Accessor to calculate the remaining hours for the day.
      */
     public function getRemainingHoursAttribute()
@@ -87,5 +87,19 @@ class OfficeLeaveRequest extends Model
     public function reasonTransactions()
     {
         return $this->morphMany(ReasonTransaction::class, 'reasonable');
+    }
+
+    /**
+     * Accessor to calculate the total hours for the leave request.
+     */
+    public function getTotalHoursAttribute()
+    {
+        $startTime = Carbon::parse($this->start_time);
+        $endTime = Carbon::parse($this->end_time);
+
+        // Calculate total leave hours
+        $totalHours = $startTime->diffInMinutes($endTime) / 60;
+
+        return $totalHours > 0 ? floor($totalHours) . ' Jam ' . round((fmod($totalHours, 1) * 60)) . ' Minit' : '0 Jam 0 Minit';
     }
 }

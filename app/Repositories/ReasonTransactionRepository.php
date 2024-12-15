@@ -35,4 +35,10 @@ class ReasonTransactionRepository
 
         return $transaction->update($data);
     }
+
+    public function findByIds(array $ids)
+    {
+        return ReasonTransaction::whereIn('id', $ids)->get();
+    }
+
 }

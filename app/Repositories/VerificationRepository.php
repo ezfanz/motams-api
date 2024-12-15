@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\AttendanceRecord;
 use App\Models\ReviewStatus;
+use App\Models\ReasonTransaction;
 
 
 class VerificationRepository
@@ -55,5 +56,15 @@ class VerificationRepository
             })
             ->values()
             ->toArray();
+    }
+
+    /**
+     * Find multiple transactions by IDs.
+     */
+    public function findByIds(array $ids)
+    {
+        return ReasonTransaction::whereIn('id', $ids)
+            ->whereNull('deleted_at') // Respecting soft deletes
+            ->get();
     }
 }

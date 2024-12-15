@@ -9,6 +9,11 @@ use App\Services\OfficeLeaveApprovalService;
 use App\Http\Requests\Leave\FilterLeaveApprovalRequest;
 use App\Http\Requests\Leave\BatchApprovalRequest;
 use App\Http\Requests\Leave\MonthlyStatusSummaryRequest;
+use App\Http\Requests\Leave\OfficeLeaveApprovalRequest;
+
+use Illuminate\Support\Facades\Auth;
+
+
 
 class OfficeLeaveApprovalController extends Controller
 {
@@ -35,5 +40,22 @@ class OfficeLeaveApprovalController extends Controller
     {
         $summary = $this->service->getMonthlyApprovalSummary($request->input('start_date'), $request->input('end_date'));
         return response()->json(['status' => 'success', 'data' => $summary]);
+    }
+
+     /**
+     * Approve or Reject Office Leave Requests.
+     */
+    public function approve(OfficeLeaveApprovalRequest $request)
+    {
+        $validated = $request->validated();
+        $userId = Auth::id();
+
+        $result = $this->service->approveLeaveRequest($validated, $userId);
+
+        if ($result['status']) {
+            return response()->json(['status' => 'success', 'message' => $result['message']], 200);
+        }
+
+        return response()->json(['status' => 'error', 'message' => $result['message']], 400);
     }
 }

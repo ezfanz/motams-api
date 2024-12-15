@@ -7,6 +7,7 @@ use App\Http\Requests\Attendance\AttendanceReviewIndexRequest;
 use App\Http\Requests\Attendance\BatchReviewRequest;
 use App\Http\Requests\Attendance\AttendanceStatusSummaryRequest;
 use App\Http\Requests\Attendance\ProcessAttendanceReviewRequest;
+use App\Http\Requests\Attendance\BatchProcessAttendanceReviewRequest;
 use App\Services\AttendanceReviewService;
 use App\Helpers\ResponseHelper;
 use Illuminate\Http\JsonResponse;
@@ -68,4 +69,18 @@ class AttendanceReviewController extends Controller
 
         return response()->json(['status' => 'success', 'data' => $details], 200);
     }
+
+    public function batchProcess(BatchProcessAttendanceReviewRequest $request)
+    {
+        $validated = $request->validated(); // Validate incoming data
+        $userId = Auth::id(); // Get authenticated user ID
+        $result = $this->service->processBatchReview($validated, $userId);
+
+        if ($result['status']) {
+            return response()->json(['status' => 'success', 'message' => $result['message']], 200);
+        }
+
+        return response()->json(['status' => 'error', 'message' => $result['message']], 400);
+    }
+
 }

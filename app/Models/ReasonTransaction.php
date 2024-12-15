@@ -89,4 +89,12 @@ class ReasonTransaction extends Model
         return $this->belongsTo(ReasonType::class, 'reason_type_id');
     }
 
+    /**
+     * Relationship with Status.
+     */
+    public function status()
+    {
+        return $this->belongsTo(Status::class, 'status_id');
+    }
+
 }
