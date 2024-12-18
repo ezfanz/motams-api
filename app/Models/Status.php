@@ -27,4 +27,12 @@ class Status extends Model
     {
         return $this->hasMany(ReasonTransaction::class, 'status_id');
     }
+
+    /**
+     * Relationship with OfficeLeaveRequest.
+     */
+    public function officeLeaveRequests()
+    {
+        return $this->hasMany(OfficeLeaveRequest::class, 'status', 'id');
+    }
 }

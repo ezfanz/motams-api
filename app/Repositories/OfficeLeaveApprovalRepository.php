@@ -5,6 +5,9 @@ namespace App\Repositories;
 use App\Models\OfficeLeaveRequest;
 use App\Models\ReviewStatus;
 use App\Models\User;
+use Carbon\Carbon;
+use Illuminate\Support\Facades\DB;
+
 
 class OfficeLeaveApprovalRepository
 {
@@ -27,10 +30,27 @@ class OfficeLeaveApprovalRepository
     }
 
 
-    public function updateApprovalStatusForRequests(array $requestIds, $statusId, $notes = null)
+ /**
+     * Update approval statuses for leave requests in batch.
+     *
+     * @param int $userId
+     * @param array $requestIds
+     * @param int $approvalStatus
+     * @param string|null $approvalNotes
+     * @return bool
+     */
+    public function updateApprovalStatusForRequests(int $userId, array $requestIds, int $approvalStatus, ?string $approvalNotes): bool
     {
+        $updateData = [
+            'approval_status_id' => $approvalStatus,
+            'approval_notes' => $approvalNotes,
+            'approval_date' => Carbon::now(),
+            'approved_by' => $userId,
+            'status' => $approvalStatus,
+        ];
+
         return OfficeLeaveRequest::whereIn('id', $requestIds)
-            ->update(['approval_status_id' => $statusId, 'approval_notes' => $notes]);
+            ->update($updateData);
     }
 
     public function getAllStatuses()
@@ -86,5 +106,61 @@ class OfficeLeaveApprovalRepository
                 'status' => $status,
                 'pengguna' => $approverId,
             ]);
+    }
+
+
+    /**
+     * Get the department ID for a given user.
+     *
+     * @param int $userId
+     * @return int|null
+     */
+    public function getDepartmentByUserId(int $userId): ?String
+    {
+        return DB::table('users')
+        ->where('id', $userId)
+            ->whereNull('deleted_at') // Ensure soft delete handling
+            ->value('department');
+    }
+
+
+    public function getSupervisedApprovalStatuses(array $filters, String $departmentId): array
+    {
+        $query = DB::table('office_leave_requests as olr')
+        ->leftJoin('users as u', 'olr.created_by', '=', 'u.id')
+        ->leftJoin('leave_types as lt', 'olr.leave_type_id', '=', 'lt.id')
+        // ->leftJoin('department as d', 'u.department_id', '=', 'd.id')
+        ->leftJoin('statuses as s', 'olr.status', '=', 's.id')
+        ->select(
+            'olr.id',
+            'u.name as nama_pegawai',
+            'u.position as jawatan',
+            // 'd.diskripsi as deptname',
+            'lt.name as jenis_leave',
+            DB::raw("DATE_FORMAT(olr.date, '%d/%m/%Y') as tarikh"),
+            'olr.day as hari',
+            'olr.start_time',
+            'olr.end_time',
+            DB::raw("CONCAT(FLOOR(olr.total_hours), ' Jam ', ROUND((MOD(olr.total_hours, 1) * 60)), ' Minit') AS total_hours_minutes"),
+            'olr.reason',
+            's.description as disk_status',
+            DB::raw("DATE_FORMAT(olr.approval_date, '%d/%m/%Y %h:%i:%s %p') as tarikh_kelulusan")
+        )
+            ->where('u.department', $departmentId)
+            ->whereNull('olr.deleted_at');
+
+        // Apply filters
+        if (!empty($filters['pegawai_id'])) {
+            $query->where('olr.created_by', $filters['pegawai_id']);
+        }
+
+        if (!empty($filters['month_start']) && !empty($filters['month_end'])) {
+            $query->whereBetween('olr.date', [
+                Carbon::parse("{$filters['month_start']}-01"),
+                Carbon::parse("{$filters['month_end']}-01")->endOfMonth(),
+            ]);
+        }
+
+        return $query->orderBy('olr.date', 'desc')->get()->toArray();
     }
 }

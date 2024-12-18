@@ -27,7 +27,9 @@ class OfficeLeaveRequest extends Model
         'reason',
         'status',
         'approval_status_id',
-        'approval_notes'
+        'approval_notes',
+        'approved_by',
+        'approval_date',
     ];
 
     /**
@@ -36,6 +38,15 @@ class OfficeLeaveRequest extends Model
     public function creator()
     {
         return $this->belongsTo(User::class, 'created_by');
+    }
+
+
+    /**
+     * Define the relationship with the User (approver of the leave request).
+     */
+    public function approver()
+    {
+        return $this->belongsTo(User::class, 'approved_by');
     }
 
     /**
@@ -102,4 +113,14 @@ class OfficeLeaveRequest extends Model
 
         return $totalHours > 0 ? floor($totalHours) . ' Jam ' . round((fmod($totalHours, 1) * 60)) . ' Minit' : '0 Jam 0 Minit';
     }
+
+
+    /**
+     * Relationship with the Status model.
+     */
+    public function status()
+    {
+        return $this->belongsTo(Status::class, 'status', 'id');
+    }
+
 }

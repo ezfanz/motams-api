@@ -13,8 +13,8 @@ class OfficeLeaveStatusService
         $this->repository = $repository;
     }
 
-    /**
-     * Fetch leave statuses with filters applied.
+      /**
+     * Fetch leave statuses with filters.
      *
      * @param array $filters
      * @param int $userId
@@ -22,8 +22,7 @@ class OfficeLeaveStatusService
      */
     public function fetchLeaveStatuses(array $filters, int $userId): array
     {
-        $departmentId = $this->repository->getDepartmentIdByUserId($userId);
-
-        return $this->repository->getLeaveStatuses($filters, $departmentId);
+        return $this->repository->getLeaveStatuses($filters, $userId);
     }
+
 }

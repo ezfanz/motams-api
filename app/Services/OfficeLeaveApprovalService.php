@@ -24,9 +24,32 @@ class OfficeLeaveApprovalService
         return $this->repository->getAllStatuses();
     }
 
-    public function batchUpdateApprovalStatus(array $data)
+/**
+     * Batch update approval statuses for office leave requests.
+     *
+     * @param int $userId
+     * @param array $data
+     * @return array
+     */
+    public function batchUpdateApprovalStatus(int $userId, array $data): array
     {
-        return $this->repository->updateApprovalStatusForRequests($data['request_ids'], $data['approval_status_id'], $data['approval_notes']);
+        $approvalStatus = $data['statusalasan'];
+        $approvalNotes = $data['catatanpengesah'] ?? null;
+        $requestIds = $data['leave_id'];
+
+        $result = $this->repository->updateApprovalStatusForRequests($userId, $requestIds, $approvalStatus, $approvalNotes);
+
+        if ($result) {
+            return [
+                'status' => 'success',
+                'message' => 'Leave requests updated successfully.',
+            ];
+        }
+
+        return [
+            'status' => 'error',
+            'message' => 'Failed to update leave requests.',
+        ];
     }
 
     public function getMonthlyApprovalSummary($startDate, $endDate)
@@ -59,5 +82,14 @@ class OfficeLeaveApprovalService
         }
 
         return ['status' => false, 'message' => 'Failed to process leave approval.'];
+    }
+
+
+    public function fetchSupervisedApprovalStatuses(array $filters, int $userId): array
+    {
+        // Get department ID based on user ID
+        $departmentId = $this->repository->getDepartmentByUserId($userId);
+
+        return $this->repository->getSupervisedApprovalStatuses($filters, $departmentId);
     }
 }

@@ -10,6 +10,10 @@ use App\Http\Requests\Leave\FilterLeaveApprovalRequest;
 use App\Http\Requests\Leave\BatchApprovalRequest;
 use App\Http\Requests\Leave\MonthlyStatusSummaryRequest;
 use App\Http\Requests\Leave\OfficeLeaveApprovalRequest;
+use Illuminate\Http\JsonResponse;
+use App\Http\Requests\Leave\GetSupervisedApprovalStatusRequest;
+
+
 
 use Illuminate\Support\Facades\Auth;
 
@@ -30,10 +34,23 @@ class OfficeLeaveApprovalController extends Controller
         return response()->json(['status' => 'success', 'data' => $leaveRequests]);
     }
 
-    public function batchUpdate(BatchApprovalRequest $request)
+     /**
+     * Batch update leave approvals.
+     *
+     * @param BatchApprovalRequest $request
+     * @return JsonResponse
+     */
+
+    public function batchUpdate(BatchApprovalRequest $request): JsonResponse
     {
-        $this->service->batchUpdateApprovalStatus($request->validated());
-        return response()->json(['status' => 'success', 'message' => 'Leave requests updated successfully']);
+        $userId = Auth::id();
+        $result = $this->service->batchUpdateApprovalStatus($userId, $request->validated());
+
+        if ($result['status'] === 'success') {
+            return response()->json(['status' => 'success', 'message' => $result['message']], 200);
+        }
+
+        return response()->json(['status' => 'error', 'message' => $result['message']], 400);
     }
 
     public function getMonthlySummary(MonthlyStatusSummaryRequest $request)
@@ -58,4 +75,25 @@ class OfficeLeaveApprovalController extends Controller
 
         return response()->json(['status' => 'error', 'message' => $result['message']], 400);
     }
+
+    public function getSupervisedApprovalStatus(GetSupervisedApprovalStatusRequest $request): JsonResponse
+    {
+        $userId = Auth::id();
+
+        // Fetch filters from request
+        $filters = [
+            'pegawai_id' => $request->input('pegawai_id'),
+            'month_start' => $request->input('month_start'),
+            'month_end' => $request->input('month_end'),
+        ];
+
+        // Fetch approval statuses
+        $statuses = $this->service->fetchSupervisedApprovalStatuses($filters, $userId);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $statuses,
+        ]);
+    }
+
 }

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Leave;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Leave\GetLeaveStatusRequest;
 use App\Services\OfficeLeaveStatusService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
 
 class OfficeLeaveStatusController extends Controller
@@ -16,13 +17,16 @@ class OfficeLeaveStatusController extends Controller
         $this->officeLeaveStatusService = $officeLeaveStatusService;
     }
 
-    /**
-     * Fetch the status of leave requests by department and filters.
+   /**
+     * Fetch the status of leave requests.
+     *
+     * @param GetLeaveStatusRequest $request
+     * @return JsonResponse
      */
-    public function getLeaveStatus(GetLeaveStatusRequest $request)
+    public function getLeaveStatus(GetLeaveStatusRequest $request): JsonResponse
     {
-        $filters = $request->validated();
         $userId = Auth::id();
+        $filters = $request->validated();
 
         $leaveStatuses = $this->officeLeaveStatusService->fetchLeaveStatuses($filters, $userId);
 

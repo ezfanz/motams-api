@@ -100,6 +100,9 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
             Route::get('/status-options', [OfficeLeaveApprovalController::class, 'getStatusOptions']);
             Route::post('/batch-update', [OfficeLeaveApprovalController::class, 'batchUpdate']);
             Route::get('/summary', [OfficeLeaveApprovalController::class, 'getMonthlySummary']);
+            Route::get('/status-supervised', [OfficeLeaveApprovalController::class, 'getSupervisedApprovalStatus'])
+    ->name('office-leave.approvals.status-supervised');
+
         });
     });
 
