@@ -19,16 +19,22 @@ class User extends Authenticatable implements JWTSubject
      * @var array<int, string>
      */
     protected $fillable = [
-        'staff_id',
-        'name',
-        'username',            // New username field
+        'username',
         'email',
         'password',
-        'position',            // User's job title or position
-        'department',          // User's department
-        'reviewing_officer_id', // ID of the reviewing officer
-        'approving_officer_id', // ID of the approving officer
-        'last_login_at',
+        'fullname',
+        'nokp',
+        'phone',
+        'unit',
+        'jawatan',
+        'gred',
+        'kump_khidmat',
+        'ketua_jbtn',
+        'telegram_id',
+        'encrypt',
+        'remember_token',
+        'role_id',
+        'department_id',
     ];
 
     // Ensure the last_login_at attribute is cast as a datetime
@@ -146,4 +152,15 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->hasMany(Notification::class);
     }
+
+    public function role()
+    {
+        return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    public function department()
+    {
+        return $this->belongsTo(Department::class, 'department_id');
+    }
+
 }

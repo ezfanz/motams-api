@@ -18,18 +18,25 @@ class OfficeLeaveRequest extends Model
      * @var array<int, string>
      */
     protected $fillable = [
-        'created_by',
+        'idpeg',
         'leave_type_id',
-        'date',
-        'day',
+        'date_mula',
+        'date_tamat',
+        'day_timeoff',
         'start_time',
         'end_time',
+        'totalday',
+        'totalhours',
         'reason',
+        'tkh_mohon',
+        'pelulus_id',
+        'catatan_pelulus',
+        'status_pelulus',
+        'tkh_kelulusan',
         'status',
-        'approval_status_id',
-        'approval_notes',
-        'approved_by',
-        'approval_date',
+        'is_deleted',
+        'id_pencipta',
+        'pengguna',
     ];
 
     /**
