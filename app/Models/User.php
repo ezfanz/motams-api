@@ -13,6 +13,16 @@ class User extends Authenticatable implements JWTSubject
 {
     use HasFactory, Notifiable, HasRoles,  SoftDeletes;
 
+
+    /**
+     * The table associated with the model.
+     *
+     * @var string
+     */
+    protected $table = 'users';
+
+
+
     /**
      * The attributes that are mass assignable.
      *
@@ -52,6 +62,11 @@ class User extends Authenticatable implements JWTSubject
         'remember_token',
     ];
 
+    public function getDeletedAtColumn()
+    {
+        return 'is_deleted';
+    }
+
     /**
      * The attributes that should be cast.
      *
@@ -64,6 +79,7 @@ class User extends Authenticatable implements JWTSubject
             'password' => 'hashed',
         ];
     }
+
 
     /**
      * Get the identifier that will be stored in the subject claim of the JWT.

@@ -14,6 +14,8 @@ use App\Models\AttendanceRecord;
 use App\Models\ColourChange;
 use App\Models\ReasonTransaction;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 
 class UserService
 {
@@ -35,23 +37,51 @@ class UserService
         return ApiResponseHelper::formatUserResponse($user);
     }
 
-    public function loginUser(array $credentials): ?array
-    {
-        if (!$token = Auth::attempt($credentials)) {
-            return null;
+   /**
+ * Service logic for logging in a user.
+ *
+ * @param array $credentials
+ * @return array|null
+ */
+public function loginUser(array $credentials): ?array
+{
+    try {
+        // Find the user while bypassing global scopes to avoid interference
+        $user = User::withoutGlobalScopes()
+            ->whereRaw('LOWER(email) = ?', [strtolower($credentials['email'])])
+            ->first();
+
+        // Verify the user exists
+        if (!$user) {
+            throw new \Exception('User not found');
         }
 
-        $user = Auth::user();
+        // Verify the password
+        if (!Hash::check($credentials['password'], $user->password)) {
+            throw new \Exception('Invalid password');
+        }
 
-        // Update the last login timestamp
-        $user->last_login_at = now();
-        $user->save();
+        // Generate the JWT token
+        if (!$token = Auth::login($user)) {
+            throw new \Exception('Unable to generate authentication token');
+        }
 
+        // Optional: Update the user's last login timestamp
+        // $user->last_login_at = now();
+        // $user->save();
+
+        // Return the formatted user data and token
         return [
             'user' => ApiResponseHelper::formatUserResponse($user),
-            'token' => $this->formatTokenResponse($token)
+            'token' => $this->formatTokenResponse($token),
         ];
+    } catch (\Exception $e) {
+        // Log the error for debugging and return null
+        Log::error('Login error: ' . $e->getMessage());
+        return null;
     }
+}
+
 
     protected function formatTokenResponse($token): array
     {

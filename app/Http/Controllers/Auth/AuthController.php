@@ -25,7 +25,7 @@ class AuthController extends Controller
     }
 
 
-     /**
+    /**
      * Get a JWT via given credentials.
      *
      * @param LoginUserRequest $request
@@ -34,13 +34,18 @@ class AuthController extends Controller
     public function login(LoginUserRequest $request)
     {
         $credentials = $request->only(['email', 'password']);
-        $response = $this->userService->loginUser($credentials);
 
-        if (!$response) {
-            return ResponseHelper::error('Unauthorized', 401);
+        try {
+            $response = $this->userService->loginUser($credentials);
+
+            if (!$response) {
+                return ResponseHelper::error('Invalid email or password', 401);
+            }
+
+            return ResponseHelper::success($response, 'Login successful');
+        } catch (\Exception $e) {
+            return ResponseHelper::error($e->getMessage(), 500);
         }
-
-        return ResponseHelper::success($response, 'Login successful');
     }
 
     /**

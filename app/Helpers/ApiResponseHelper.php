@@ -10,33 +10,26 @@ class ApiResponseHelper
      * @param $user
      * @return array
      */
-    public static function formatUserResponse($user)
-    {
-        return [
-            'id' => $user->id,
-            'name' => $user->name,
-            'username' => $user->username,
-            'position' => $user->position,
-            'department' => $user->department,
-            'email' => $user->email,
-            'email_verified_at' => $user->email_verified_at,
-            'last_login_at' => $user->last_login_at ? $user->last_login_at->format('d/m/Y, h:i:s a') : null, // Format the date
-            'created_at' => $user->created_at,
-            'updated_at' => $user->updated_at,
-            'reviewing_officer' => $user->reviewingOfficer ? [
-                'id' => $user->reviewingOfficer->id,
-                'name' => $user->reviewingOfficer->name,
-            ] : null,
-            'approving_officer' => $user->approvingOfficer ? [
-                'id' => $user->approvingOfficer->id,
-                'name' => $user->approvingOfficer->name,
-            ] : null,
-            'roles' => $user->roles->map(function ($role) {
-                return [
-                    'id' => $role->id,
-                    'name' => $role->name,
-                ];
-            })
-        ];
-    }
+  public static function formatUserResponse($user): array
+{
+    return [
+        'id' => $user->id,
+        'username' => $user->username,
+        'email' => $user->email,
+        'fullname' => $user->fullname,
+        'nokp' => $user->nokp,
+        'phone' => $user->phone,
+        'unit' => $user->unit,
+        'jawatan' => $user->jawatan,
+        'gred' => $user->gred,
+        'kump_khidmat' => $user->kump_khidmat,
+        'role_id' => $user->role_id,
+        'department_id' => $user->department_id,
+        'telegram_id' => $user->telegram_id,
+        'is_deleted' => $user->is_deleted,
+        'last_login_at' => $user->last_login_at,
+        'created_at' => $user->created_at,
+        'updated_at' => $user->updated_at,
+    ];
+}
 }
