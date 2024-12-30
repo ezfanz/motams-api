@@ -6,18 +6,18 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
+   /**
      * Run the migrations.
      */
     public function up(): void
     {
         Schema::create('attendance_logs', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('user_id')->constrained('users')->onDelete('cascade');
-            $table->date('date'); // The date of attendance
-            $table->time('time_in')->nullable(); // The time the user clocked in
-            $table->time('time_out')->nullable(); // The time the user clocked out
+            $table->unsignedBigInteger('user_id'); // Still use unsignedBigInteger for consistency
             $table->timestamps();
+
+            // Remove foreign key constraint
+            // $table->foreign('user_id')->references('id')->on('users')->onDelete('cascade');
         });
     }
 

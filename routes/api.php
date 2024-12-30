@@ -66,6 +66,7 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
         Route::get('/list', [AttendanceRecordController::class, 'listAttendanceRecords']);
         Route::get('/status/{idpeg}', [AttendanceRecordController::class, 'getAttendanceLogs'])->where('idpeg', '[0-9]+');
         Route::get('/review-count', [AttendanceRecordController::class, 'getReviewCounts']);
+        Route::get('/approval-count', [AttendanceRecordController::class, 'getApprovalCounts']);
 
         // General resource routes
         Route::apiResource('/', AttendanceRecordController::class);

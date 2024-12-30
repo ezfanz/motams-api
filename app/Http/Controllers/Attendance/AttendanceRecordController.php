@@ -105,9 +105,9 @@ class AttendanceRecordController extends Controller
         }
 
         // Check if user exists and is not soft-deleted
-        $staffId = User::whereNull('deleted_at')
+        $staffId = User::where('is_deleted', '!=', 1)
             ->where('id', $idpeg)
-            ->value('staff_id');
+            ->value('staffid');
 
         if (!$staffId) {
             Log::warning("Staff ID not found for User ID: {$idpeg}");
@@ -131,6 +131,8 @@ class AttendanceRecordController extends Controller
     {
         $userId = Auth::id();
         $roleId = Auth::user()->roles()->first()?->id; // Assuming roles are managed via Spatie package
+        
+        // dd($roleId);
 
         if (!$roleId) {
             return ResponseHelper::error('Role not found for the authenticated user.', 400);
@@ -139,6 +141,34 @@ class AttendanceRecordController extends Controller
         // try {
             $reviewCount = $this->attendanceRecordService->getReviewCount($userId, $roleId);
             return ResponseHelper::success(['review_count' => $reviewCount], 'Review count retrieved successfully');
+        // } catch (\InvalidArgumentException $e) {
+        //     return ResponseHelper::error($e->getMessage(), 400);
+        // } catch (\Exception $e) {
+        //     return ResponseHelper::error('Failed to retrieve review counts.', 500);
+        // }
+    }
+
+
+     /**
+     * Get approval counts for the authenticated user based on their role.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getApprovalCounts(Request $request): JsonResponse
+    {
+        $userId = Auth::id();
+        $roleId = Auth::user()->roles()->first()?->id; // Assuming roles are managed via Spatie package
+        
+        // dd($roleId);
+
+        if (!$roleId) {
+            return ResponseHelper::error('Role not found for the authenticated user.', 400);
+        }
+
+        // try {
+            $approvalCount = $this->attendanceRecordService->getApprovalCount($userId, $roleId);
+            return ResponseHelper::success(['approval_count' => $approvalCount], 'Approval count retrieved successfully');
         // } catch (\InvalidArgumentException $e) {
         //     return ResponseHelper::error($e->getMessage(), 400);
         // } catch (\Exception $e) {

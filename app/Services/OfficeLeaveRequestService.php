@@ -149,7 +149,7 @@ class OfficeLeaveRequestService
     public function countApprovalsForUser(int $userId): int
     {
         return OfficeLeaveRequest::where('status', '15')
-            ->where('approval_status_id', $userId)
+            ->where('pelulus_id', $userId)
             ->count();
     }
 

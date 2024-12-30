@@ -10,7 +10,7 @@ use Carbon\Carbon;
 
 class OfficeLeaveRequest extends Model
 {
-    use HasFactory,SoftDeletes;
+    use HasFactory;
 
     /**
      * The attributes that are mass assignable.
@@ -37,6 +37,7 @@ class OfficeLeaveRequest extends Model
         'is_deleted',
         'id_pencipta',
         'pengguna',
+        'is_deleted',
     ];
 
     /**
@@ -44,7 +45,7 @@ class OfficeLeaveRequest extends Model
      */
     public function creator()
     {
-        return $this->belongsTo(User::class, 'created_by');
+        return $this->belongsTo(User::class, 'idpeg');
     }
 
 

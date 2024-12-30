@@ -8,7 +8,6 @@ use App\Services\ColourChangeService;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Http\JsonResponse;
 
-
 class ColourChangeController extends Controller
 {
     protected $colourChangeService;
@@ -18,9 +17,18 @@ class ColourChangeController extends Controller
         $this->colourChangeService = $colourChangeService;
     }
 
-    public function getUserColourChanges(): JsonResponse
+    /**
+     * Retrieve user colour changes.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function getUserColourChanges(Request $request): JsonResponse
     {
-        $userId = Auth::user()->id; // Get the logged-in user ID
+        // Get the logged-in user ID or the `idpeg` passed in the request
+        $userId = $request->input('idpeg', Auth::user()->id);
+
+        // Fetch colour changes via the service
         $colourChanges = $this->colourChangeService->getColourChangesForUser($userId);
 
         return response()->json([

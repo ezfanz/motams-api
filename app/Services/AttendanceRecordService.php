@@ -131,4 +131,31 @@ class AttendanceRecordService
         throw new \InvalidArgumentException('Invalid role specified');
     }
 
+
+
+      /**
+     * Get approval count based on the user role and current date range.
+     *
+     * @param int $userId
+     * @param int $role
+     * @return int
+     * @throws \InvalidArgumentException
+     */
+    public function getApprovalCount(int $userId, int $role): int
+    {
+        $dayNow = Carbon::now()->format('d');
+        $currentMonth = Carbon::now()->format('Y-m');
+        $lastMonth = Carbon::now()->subMonth()->format('Y-m');
+
+        if (in_array($role, [3, 2])) { // Admin and Pentadbir
+            return $this->attendanceRecordRepository->getAdminApprovalCount($dayNow, $currentMonth, $lastMonth);
+        }
+
+        if (in_array($role, [5, 7, 8, 10, 11, 13, 15, 17])) { // Penyemak roles
+            return $this->attendanceRecordRepository->getApproverApprovalCount($userId, $dayNow, $currentMonth, $lastMonth);
+        }
+
+        throw new \InvalidArgumentException('Invalid role specified');
+    }
+
 }

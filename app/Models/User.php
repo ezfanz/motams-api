@@ -6,28 +6,13 @@ use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use PHPOpenSourceSaver\JWTAuth\Contracts\JWTSubject;
-use Spatie\Permission\Traits\HasRoles;
-use Illuminate\Database\Eloquent\SoftDeletes;
 
 class User extends Authenticatable implements JWTSubject
 {
-    use HasFactory, Notifiable, HasRoles,  SoftDeletes;
+    use HasFactory, Notifiable;
 
-
-    /**
-     * The table associated with the model.
-     *
-     * @var string
-     */
     protected $table = 'users';
 
-
-
-    /**
-     * The attributes that are mass assignable.
-     *
-     * @var array<int, string>
-     */
     protected $fillable = [
         'username',
         'email',
@@ -47,136 +32,64 @@ class User extends Authenticatable implements JWTSubject
         'department_id',
     ];
 
-    // Ensure the last_login_at attribute is cast as a datetime
-    protected $casts = [
-        'last_login_at' => 'datetime',
-    ];
+    protected $hidden = ['password', 'remember_token'];
 
-    /**
-     * The attributes that should be hidden for serialization.
-     *
-     * @var array<int, string>
-     */
-    protected $hidden = [
-        'password',
-        'remember_token',
-    ];
+    protected $casts = ['last_login_at' => 'datetime'];
 
     public function getDeletedAtColumn()
     {
         return 'is_deleted';
     }
 
-    /**
-     * The attributes that should be cast.
-     *
-     * @var array<string, string>
-     */
-    protected function casts(): array
+    protected static function booted()
     {
-        return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
-        ];
+        static::addGlobalScope('is_deleted', function ($builder) {
+            $builder->where('is_deleted', '=', 0);
+        });
     }
 
-
-    /**
-     * Get the identifier that will be stored in the subject claim of the JWT.
-     *
-     * @return mixed
-     */
     public function getJWTIdentifier()
     {
         return $this->getKey();
     }
 
-    /**
-     * Return a key-value array containing any custom claims to be added to the JWT.
-     *
-     * @return array
-     */
     public function getJWTCustomClaims()
     {
         return [];
     }
 
     /**
-     * Check if the user has review permissions.
-     *
-     * @return bool
+     * Single role relationship using role_id.
      */
-    public function canReview()
+    public function roles()
     {
-        return $this->can('review');
+        return $this->belongsTo(Role::class, 'role_id', 'id');
+    }  
+
+                                                                        
+    public function hasRole($roleName)
+    {
+        return $this->role && $this->role->diskripsi === $roleName;
     }
 
-    /**
-     * Check if the user has approve permissions.
-     *
-     * @return bool
-     */
-    public function canApprove()
+    public function assignRole($roleName)
     {
-        return $this->can('approve');
+        $role = Role::where('diskripsi', $roleName)->first();
+
+        if ($role) {
+            $this->role_id = $role->id;
+            $this->save();
+        }
     }
 
-    /**
-     * Relationship to fetch the reviewing officer for this user.
-     */
-    public function reviewingOfficer()
+    public function removeRole()
     {
-        return $this->belongsTo(User::class, 'reviewing_officer_id');
+        $this->role_id = null;
+        $this->save();
     }
 
-    /**
-     * Relationship to fetch the approving officer for this user.
-     */
-    public function approvingOfficer()
+    public function attendanceLogs()
     {
-        return $this->belongsTo(User::class, 'approving_officer_id');
+        return $this->hasMany(AttendanceLog::class, 'user_id', 'id');
     }
-
-    /**
-     * Relationship with AttendanceRecords.
-     */
-    public function attendanceRecords()
-    {
-        return $this->hasMany(AttendanceRecord::class);
-    }
-
-    /**
-     * Relationship with Approvals as a Reviewer.
-     */
-    public function reviews()
-    {
-        return $this->hasMany(AttendanceApproval::class, 'reviewed_by');
-    }
-
-    /**
-     * Relationship with Approvals as an Approver.
-     */
-    public function approvals()
-    {
-        return $this->hasMany(AttendanceApproval::class, 'approved_by');
-    }
-
-    /**
-     * Relationship with Notifications.
-     */
-    public function notifications()
-    {
-        return $this->hasMany(Notification::class);
-    }
-
-    public function role()
-    {
-        return $this->belongsTo(Role::class, 'role_id');
-    }
-
-    public function department()
-    {
-        return $this->belongsTo(Department::class, 'department_id');
-    }
-
 }

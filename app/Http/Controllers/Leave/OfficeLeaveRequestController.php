@@ -140,6 +140,6 @@ class OfficeLeaveRequestController extends Controller
         $approvalCount = $this->service->countApprovalsForUser($userId);
 
         // Return the count as a response
-        return ResponseHelper::success(['count' => $approvalCount], 'Approval count retrieved successfully');
+        return ResponseHelper::success(['count' => $approvalCount], 'Approval office leave count retrieved successfully');
     }
 }
