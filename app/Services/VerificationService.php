@@ -59,4 +59,64 @@ class VerificationService
 
         return ['status' => true, 'message' => 'Records successfully updated.'];
     }
+
+     /**
+     * Process batch review logic.
+     */
+    public function processBatchReview(array $data, int $userId): array
+    {
+        $transactions = $this->verificationRepository->findByIds($data['tralasan_id']);
+
+        if ($transactions->isEmpty()) {
+            return ['status' => false, 'message' => 'No valid records found for review.'];
+        }
+
+        $currentDate = Carbon::now()->format('Y-m-d H:i:s');
+        $status = $data['statusalasan'];
+        $notes = $data['catatanpenyemak'];
+
+        foreach ($transactions as $transaction) {
+            $transaction->update([
+                'penyemak_id' => $userId,
+                'status_penyemak' => $status,
+                'catatan_penyemak' => $notes,
+                'tkh_penyemak_semak' => $currentDate,
+                'status' => $status,
+            ]);
+
+            switch ($status) {
+                case 2:
+                    $this->handleVerified($transaction);
+                    $message = 'Records successfully sent to approver.';
+                    break;
+                case 3:
+                    $this->handleNotVerified($transaction);
+                    $message = 'Records marked as not verified.';
+                    break;
+                case 6:
+                    $this->handleNeedMoreInfo($transaction);
+                    $message = 'Records require additional information.';
+                    break;
+                default:
+                    $message = 'Batch review processed successfully.';
+            }
+        }
+
+        return ['status' => true, 'message' => $message];
+    }
+
+    protected function handleVerified($transaction)
+    {
+        // Logic for verified
+    }
+
+    protected function handleNotVerified($transaction)
+    {
+        // Logic for not verified
+    }
+
+    protected function handleNeedMoreInfo($transaction)
+    {
+        // Logic for need more information
+    }
 }

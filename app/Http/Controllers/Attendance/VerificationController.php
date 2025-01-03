@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Http\Requests\Attendance\BatchVerificationRequest;
 use App\Http\Requests\Attendance\BatchApproveRequest;
 use App\Services\VerificationService;
+use App\Http\Requests\Attendance\BatchReviewRequest;
 use App\Helpers\ResponseHelper;
 use Illuminate\Support\Facades\Auth;
 
@@ -63,4 +64,21 @@ class VerificationController extends Controller
 
         return response()->json(['status' => 'error', 'message' => $response['message']], 400);
     }
+
+        /**
+     * Batch review process for attendance.
+     */
+    public function batchReview(BatchReviewRequest $request)
+    {
+        $validated = $request->validated();
+        $userId = Auth::id(); // Authenticated user ID
+        $response = $this->verificationService->processBatchReview($validated, $userId);
+
+        if ($response['status']) {
+            return response()->json(['status' => 'success', 'message' => $response['message']], 200);
+        }
+
+        return response()->json(['status' => 'error', 'message' => $response['message']], 400);
+    }
+
 }

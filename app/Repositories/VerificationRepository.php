@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\AttendanceRecord;
 use App\Models\ReviewStatus;
 use App\Models\ReasonTransaction;
+use App\Models\TransAlasan;
 
 
 class VerificationRepository
@@ -63,8 +64,8 @@ class VerificationRepository
      */
     public function findByIds(array $ids)
     {
-        return ReasonTransaction::whereIn('id', $ids)
-            ->whereNull('deleted_at') // Respecting soft deletes
-            ->get();
+        return TransAlasan::whereIn('id', $ids)
+        ->where('is_deleted', '!=', 1)
+        ->get();
     }
 }

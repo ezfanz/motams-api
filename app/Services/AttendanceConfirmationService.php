@@ -2,7 +2,7 @@
 
 namespace App\Services;
 
-use App\Models\ReasonTransaction;
+use App\Models\TransAlasan;
 use App\Models\Status;
 use Carbon\Carbon;
 
@@ -10,51 +10,59 @@ class AttendanceConfirmationService
 {
     public function getConfirmationDetails(int $id): ?array
     {
-        $transaction = ReasonTransaction::with(['employee', 'reasonType', 'reason', 'reviewer', 'status'])
-            ->where('id', $id)
-            ->first();
+        $transaction = TransAlasan::with([
+            'user:id,fullname,jawatan,department_id',
+            'user.department:id,diskripsi',
+            'jenisAlasan:id,diskripsi_bm',
+            'alasan:id,diskripsi',
+            'reviewer:id,fullname',
+            'status:id,diskripsi',
+        ])
+        ->where('id', $id)
+        ->where('is_deleted', '!=', 1)
+        ->first();
 
         if (!$transaction) {
             return null;
         }
 
         return [
-            'fullname' => $transaction->employee->name ?? '',
-            'jawatan' => $transaction->employee->position ?? '',
-            'bahagian' => $transaction->employee->department->name ?? '',
-            'tarikh' => $transaction->log_timestamp->format('d/m/Y'),
-            'hari' => $transaction->log_timestamp->isoFormat('dddd'),
-            'jenis_alasan' => $transaction->reasonType->description ?? '',
-            'sebab_alasan' => $transaction->reason->description ?? '',
-            'catatan_pegawai' => $transaction->employee_notes,
-            'tarikh_penyelarasan' => $transaction->employee_reason_at
-                ? $transaction->employee_reason_at->format('d/m/Y h:i:s A')
+            'fullname' => $transaction->user->fullname ?? '',
+            'jawatan' => $transaction->user->jawatan ?? '',
+            'bahagian' => $transaction->user->department->diskripsi ?? '',
+            'tarikh' => Carbon::parse($transaction->log_datetime)->format('d/m/Y'),
+            'hari' => Carbon::parse($transaction->log_datetime)->isoFormat('dddd'),
+            'jenis_alasan' => $transaction->jenisAlasan->diskripsi_bm ?? '',
+            'sebab_alasan' => $transaction->alasan->diskripsi ?? '',
+            'catatan_pegawai' => $transaction->catatan_peg,
+            'tarikh_penyelarasan' => $transaction->tkh_peg_alasan
+                ? Carbon::parse($transaction->tkh_peg_alasan)->format('d/m/Y h:i:s A')
                 : '',
-            'pegawai_semakan' => $transaction->reviewer->name ?? '',
-            'catatan_pegawai_semakan' => $transaction->review_notes ?? '',
-            'status_semakan' => $transaction->status->description ?? '',
-            'tarikh_semakan' => $transaction->reviewed_at
-                ? $transaction->reviewed_at->format('d/m/Y h:i:s A')
+            'pegawai_semakan' => $transaction->reviewer->fullname ?? '',
+            'catatan_pegawai_semakan' => $transaction->catatan_penyemak ?? '',
+            'status_semakan' => $transaction->status->diskripsi ?? '',
+            'tarikh_semakan' => $transaction->tkh_penyemak_semak
+                ? Carbon::parse($transaction->tkh_penyemak_semak)->format('d/m/Y h:i:s A')
                 : '',
-            'status_pengesahan' => Status::whereNull('deleted_at')
+            'status_pengesahan' => Status::where('is_deleted', '!=', 1)
                 ->whereIn('id', [4, 5, 6])
-                ->get(['id', 'description']),
+                ->get(['id', 'diskripsi']),
         ];
     }
 
     public function processConfirmation(array $data, int $userId): array
     {
-        $transaction = ReasonTransaction::find($data['transid']);
+        $transaction = TransAlasan::find($data['transid']);
 
         if (!$transaction) {
             return ['status' => false, 'message' => 'Transaction not found.'];
         }
 
         $transaction->update([
-            'approved_by' => $userId,
-            'approval_status' => $data['statusalasan'],
-            'approval_notes' => $data['catatanpengesah'],
-            'approved_at' => Carbon::now(),
+            'pengesah_id' => $userId,
+            'status_pengesah' => $data['statusalasan'],
+            'catatan_pengesah' => $data['catatanpengesah'],
+            'tkh_pengesah_sah' => Carbon::now(),
             'status' => $data['statusalasan'],
         ]);
 

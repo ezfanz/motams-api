@@ -22,7 +22,7 @@ class ProcessAttendanceReviewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'review_id' => 'required|integer|exists:reason_transactions,id',
+            'review_id' => 'required|integer|exists:trans_alasan,id',
             'status' => 'required|integer|in:2,3,6',
             'notes' => 'nullable|string|max:255',
         ];

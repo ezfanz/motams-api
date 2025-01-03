@@ -10,6 +10,7 @@ use Illuminate\Support\Facades\Log;
 use App\Models\User;
 use App\Models\ReasonTransaction;
 use App\Models\TransAlasan;
+use Carbon\Carbon;
 
 
 class AttendanceRecordRepository
@@ -373,7 +374,7 @@ class AttendanceRecordRepository
             ->where('trans_alasan.idpeg', '=', $userId)
             ->where('trans_alasan.jenisalasan_id', '=', 3) // Reason type ID for absence
             ->where('trans_alasan.is_deleted', '!=', 1);
-    
+
         // Main query for calendars and absence details
         $query = DB::table('calendars')
             ->leftJoin('transit', function ($join) use ($userId) {
@@ -412,18 +413,18 @@ class AttendanceRecordRepository
                 'reasons_sub.statusabsent'
             )
             ->orderBy('calendars.fulldate', 'ASC');
-    
+
         // Fetch records and map additional fields
         $records = $query->get();
-    
+
         return $records->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->fulldate));
             $record->box_color = $this->determineBoxColor($record->statusabsent);
             return $record;
         })->toArray();
     }
-    
-    
+
+
 
     public function fetchEarlyLeaveRecords(int $userId, string $startDay, string $lastDay): array
     {
@@ -431,7 +432,7 @@ class AttendanceRecordRepository
         $staffId = User::where('is_deleted', '!=', 1)
             ->where('id', $userId)
             ->value('staffid');
-    
+
         // Query the `lateinoutview` to fetch early leave records
         $query = DB::table('lateinoutview')
             ->select(
@@ -468,10 +469,10 @@ class AttendanceRecordRepository
             ->where('lateinoutview.isweekday', 1)
             ->where('lateinoutview.isholiday', 0)
             ->orderBy('lateinoutview.trdate', 'ASC');
-    
+
         // Fetch records
         $records = $query->get();
-    
+
         // Map and format records
         return $records->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->trdate));
@@ -479,7 +480,7 @@ class AttendanceRecordRepository
             return $record;
         })->toArray();
     }
-    
+
 
     private function determineBoxColor($status)
     {
@@ -605,6 +606,97 @@ class AttendanceRecordRepository
                             $query->whereMonth('trans_alasan.log_datetime', now()->subMonth()->month);
                         });
                 })->count();
+    }
+
+
+    public function getFilteredRecords(array $filters)
+    {
+        $userId = $filters['user_id'];
+        $roleId = $filters['role_id'];
+        $month = $filters['month'] ?? now()->month;
+        $year = $filters['year'] ?? now()->year;
+        $status = $filters['status'] ?? null;
+
+        $firstDayOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateTimeString();
+        $lastDayOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
+
+        $query = DB::table('trans_alasan')
+            ->select(
+                'trans_alasan.id',
+                'trans_alasan.idpeg AS user_id',
+                'users.fullname',
+                'users.jawatan AS position',
+                'trans_alasan.log_datetime',
+                'trans_alasan.jenisalasan_id',
+                'trans_alasan.catatan_peg AS reason_note',
+                'trans_alasan.status',
+                'jenis_alasan.diskripsi_bm AS reason_type',
+                'alasan.diskripsi AS reason'
+            )
+            ->leftJoin('users', 'trans_alasan.idpeg', '=', 'users.id')
+            ->leftJoin('alasan', 'trans_alasan.alasan_id', '=', 'alasan.id')
+            ->leftJoin('jenis_alasan', 'trans_alasan.jenisalasan_id', '=', 'jenis_alasan.id')
+            ->where('trans_alasan.is_deleted', '!=', 1)
+            ->whereBetween('trans_alasan.log_datetime', [$firstDayOfMonth, $lastDayOfMonth]);
+
+        // Role-based filtering
+        if ($roleId == 3) {
+            // Admin sees all records
+        } else {
+            // Reviewers or Approvers
+            $query->where('users.penyemak_id', $userId);
+        }
+
+        // Status-based filtering
+        if ($status) {
+            $query->where('trans_alasan.status', $status);
+        }
+
+        $query->orderBy('trans_alasan.log_datetime', 'DESC');
+
+        return $query->get()->map(function ($record) {
+            return [
+                'name' => $record->fullname,
+                'position' => $record->position,
+                'date' => date('d/m/Y', strtotime($record->log_datetime)),
+                'day' => Carbon::parse($record->log_datetime)->isoFormat('dddd'),
+                'time' => date('h:i:s A', strtotime($record->log_datetime)),
+                'reason' => $record->reason,
+                'type' => $this->getReasonType($record->jenisalasan_id),
+                'statusColor' => $this->getStatusColor($record->status),
+                'statusText' => $this->getStatusText($record->status),
+            ];
+        });
+    }
+
+    private function getReasonType(int $reasonTypeId)
+    {
+        return match ($reasonTypeId) {
+            1 => 'Lewat',
+            2 => 'Balik Awal',
+            3 => 'Tidak Hadir',
+            default => 'Lain-lain',
+        };
+    }
+
+    private function getStatusColor(int $status)
+    {
+        return match ($status) {
+            4 => '#28a745', // Green
+            2 => '#17a2b8', // Blue
+            1, 3, 5 => '#ffc107', // Yellow
+            default => '#dc3545', // Red
+        };
+    }
+
+    private function getStatusText(int $status)
+    {
+        return match ($status) {
+            4 => 'Alasan Diterima Pengesah',
+            2 => 'Alasan Diterima Penyemak',
+            1, 3, 5 => 'Menunggu Semakan/ Alasan Tidak Diterima/ Memerlukan Maklumat Lanjut',
+            default => 'Tidak Valid',
+        };
     }
 
 

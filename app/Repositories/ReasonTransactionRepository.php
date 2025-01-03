@@ -2,32 +2,31 @@
 
 namespace App\Repositories;
 
-use App\Models\ReasonTransaction;
+use App\Models\TransAlasan;
 
 class ReasonTransactionRepository
 {
     /**
      * Find a transaction by ID.
      */
-    public function findById(int $id): ?ReasonTransaction
+    public function findById(int $id): ?TransAlasan
     {
-        return ReasonTransaction::with([
-            'employee',           // Employee relationship
-            'reasonType',         // ReasonType relationship
-            'reason',             // Reason relationship
-            'reviewer',           // Reviewer relationship
-            'approver',           // Approver relationship
-            'creator',            // Creator relationship
-            'reasonable',         // Polymorphic reasonable relationship
-        ])->find($id);
+        return TransAlasan::with([
+            'user:id,fullname,jawatan,department_id',
+            'user.department:id,diskripsi',
+            'jenisAlasan:id,diskripsi_bm',
+            'alasan:id,diskripsi',
+        ])
+        ->where('is_deleted', '!=', 1)
+        ->find($id);
     }
 
-    /**
+     /**
      * Update the review for a transaction.
      */
     public function updateReview(int $id, array $data): bool
     {
-        $transaction = ReasonTransaction::find($id);
+        $transaction = TransAlasan::find($id);
 
         if (!$transaction) {
             return false;
@@ -38,7 +37,7 @@ class ReasonTransactionRepository
 
     public function findByIds(array $ids)
     {
-        return ReasonTransaction::whereIn('id', $ids)->get();
+        return TransAlasan::whereIn('id', $ids)->get();
     }
 
 }

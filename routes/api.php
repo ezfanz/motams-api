@@ -121,12 +121,6 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
         Route::get('/monthly-status-summary', [AttendanceReviewController::class, 'getMonthlyStatusSummary'])->name('attendance-status-summary.index');
         Route::post('/process', [AttendanceReviewController::class, 'processReview'])->name('attendance-reviews.process');
         Route::get('/{id}', [AttendanceReviewController::class, 'getReviewDetails'])->name('attendance-reviews.details');
-        Route::get('/confirmation/{id}', [AttendanceConfirmationController::class, 'getConfirmationDetails'])
-        ->name('attendance-confirmation.details');
-        Route::post('/confirmation/process', [AttendanceConfirmationController::class, 'processConfirmation'])
-        ->name('attendance-confirmation.process');
-        Route::post('/batch-process', [AttendanceReviewController::class, 'batchProcess'])->name('attendance-reviews.batch-process');
-
     });
 
     /**
@@ -143,6 +137,8 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
         Route::post('/batch-update', [VerificationController::class, 'batchUpdate']);
         Route::get('/summary', [VerificationController::class, 'getMonthlySummary']);
         Route::post('/batch-approve', [VerificationController::class, 'batchApprove'])->name('attendance-verifications.batch-approve');
+        Route::post('/batch-review', [VerificationController::class, 'batchReview'])->name('attendance-verifications.batch-review');
+
     });
 
     /**
@@ -150,6 +146,11 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
      */
     Route::prefix('attendance-approval')->group(function () {
         Route::get('/list', [AttendanceApprovalController::class, 'getApprovalList']);
+        Route::get('/confirmation/{id}', [AttendanceConfirmationController::class, 'getConfirmationDetails'])
+            ->name('attendance-confirmation.details');
+        Route::post('/confirmation/process', [AttendanceConfirmationController::class, 'processConfirmation'])
+            ->name('attendance-confirmation.process');
+        Route::post('/batch-process', [AttendanceReviewController::class, 'batchProcess'])->name('attendance-reviews.batch-process');
 
     });
 

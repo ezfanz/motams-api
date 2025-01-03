@@ -20,10 +20,10 @@ class BatchReviewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'record_ids' => 'required|array|min:1',
-            'record_ids.*' => 'integer|exists:attendance_records,id', // Check each ID exists in attendance_records
-            'review_status_id' => 'required|exists:review_statuses,id', // Ensure the review status ID exists
-            'review_notes' => 'nullable|string|max:1000'
+            'tralasan_id' => 'required|array|min:1',
+            'tralasan_id.*' => 'integer|exists:trans_alasan,id',
+            'statusalasan' => 'required|integer|in:2,3,6',
+            'catatanpenyemak' => 'nullable|string|max:500',
         ];
     }
 }

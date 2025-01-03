@@ -24,7 +24,7 @@ class AttendanceReviewService
 
     public function getAttendanceRecordsForReview(array $filters)
     {
-        return $this->repository->filterByStatusAndDate($filters);
+        return $this->repository->getFilteredRecords($filters);
     }
 
     public function batchUpdateReviewStatus(array $data)
@@ -83,10 +83,10 @@ class AttendanceReviewService
         $updated = $this->reasonTransactionRepository->updateReview(
             $transaction->id,
             [
-                'reviewer_by' => $userId,
-                'review_status' => $data['status'],
-                'review_notes' => $data['notes'] ?? null,
-                'reviewed_at' => $currentTimestamp,
+                'penyemak_id' => $userId,
+                'status_penyemak' => $data['status'],
+                'catatan_penyemak' => $data['notes'] ?? null,
+                'tkh_penyemak_semak' => $currentTimestamp,
                 'status' => $data['status'],
             ]
         );

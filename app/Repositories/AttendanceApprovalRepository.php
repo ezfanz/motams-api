@@ -7,61 +7,69 @@ use Carbon\Carbon;
 
 class AttendanceApprovalRepository
 {
-    public function fetchApprovalList(int $userId, int $roleId, string $monthSearch)
+    public function fetchApprovalList(int $userId, int $roleId, int $monthSearch, int $yearSearch)
     {
-        $firstDayOfMonth = Carbon::parse($monthSearch)->firstOfMonth()->toDateTimeString();
-        $lastDayOfMonth = Carbon::parse($monthSearch)->lastOfMonth()->toDateTimeString();
+        $firstDayOfMonth = Carbon::createFromDate($yearSearch, $monthSearch, 1)->startOfMonth()->toDateTimeString();
+        $lastDayOfMonth = Carbon::createFromDate($yearSearch, $monthSearch, 1)->endOfMonth()->toDateTimeString();
 
-        $query = DB::table('reason_transactions')
+        $query = DB::table('trans_alasan')
             ->select(
-                'reason_transactions.id',
-                'reason_transactions.employee_id',
-                'users.name',
-                'users.position',
-                'reason_transactions.log_timestamp',
-                'reason_transactions.reason_type_id',
-                'reason_transactions.review_notes',
-                'reason_transactions.status',
-                'reason_types.description AS disk_jenisalasan',
-                'reasons.description AS disk_alasan'
+                'trans_alasan.id',
+                'trans_alasan.idpeg',
+                'users.fullname',
+                'users.jawatan AS position',
+                'trans_alasan.log_datetime',
+                'trans_alasan.jenisalasan_id',
+                'trans_alasan.catatan_peg AS reason_note',
+                'trans_alasan.status',
+                'jenis_alasan.diskripsi_bm AS reason_type',
+                'alasan.diskripsi AS reason'
             )
-            ->leftJoin('users', 'reason_transactions.employee_id', '=', 'users.id')
-            ->leftJoin('reasons', 'reason_transactions.reason_id', '=', 'reasons.id')
-            ->leftJoin('reason_types', 'reason_transactions.reason_type_id', '=', 'reason_types.id')
-            ->whereNull('reason_transactions.deleted_at')
-            ->whereBetween('reason_transactions.log_timestamp', [$firstDayOfMonth, $lastDayOfMonth])
-            ->orderBy('reason_transactions.log_timestamp', 'DESC');
+            ->leftJoin('users', 'trans_alasan.idpeg', '=', 'users.id')
+            ->leftJoin('alasan', 'trans_alasan.alasan_id', '=', 'alasan.id')
+            ->leftJoin('jenis_alasan', 'trans_alasan.jenisalasan_id', '=', 'jenis_alasan.id')
+            ->where('trans_alasan.is_deleted', '!=', 1)
+            ->where('trans_alasan.status', 2) // Pending Approval
+            ->whereBetween('trans_alasan.log_datetime', [$firstDayOfMonth, $lastDayOfMonth]);
 
-        if ($roleId == 3) {
-            // Admin: No additional filters
-        } else {
-            $query->where('users.approving_officer_id', $userId);
+        // Role-based filtering
+        if ($roleId != 3) { // For roles other than Admin
+            $query->where('users.pengesah_id', $userId);
         }
 
+        $query->orderBy('trans_alasan.log_datetime', 'DESC');
+
         return $query->get()->map(function ($record) {
-            return [
+            $record->trdate = date('d/m/Y', strtotime($record->log_datetime));
+            $record->masa = date('h:i:s A', strtotime($record->log_datetime));
+            $record->hari = Carbon::parse($record->log_datetime)->isoFormat('dddd');
+
+            $displayData = [
                 'name' => $record->fullname,
-                'position' => $record->jawatan,
-                'date' => date('d/m/Y', strtotime($record->log_datetime)),
-                'day' => Carbon::parse($record->log_datetime)->isoFormat('dddd'),
-                'time' => date('h:i:s A', strtotime($record->log_datetime)),
-                'reason' => $record->disk_alasan,
-                'type' => $this->getReasonType($record->jenisalasan_id),
-                'statusColor' => $this->getStatusColor($record->status),
-                'statusText' => $this->getStatusText($record->status),
+                'position' => $record->position,
+                'date' => $record->trdate,
+                'day' => $record->hari,
+                'reason' => $record->reason,
+                'status' => $record->status,
             ];
-        });
-    }
 
+            // Add type-specific fields
+            if ($record->jenisalasan_id == 1) { // Jika Lewat
+                $displayData['time'] = $record->masa;
+                $displayData['type'] = 'Lewat';
+            } elseif ($record->jenisalasan_id == 2) { // Jika Balik Awal
+                $displayData['time'] = $record->masa;
+                $displayData['type'] = 'Balik Awal';
+            } elseif ($record->jenisalasan_id == 3) { // Jika Tidak Hadir
+                $displayData['type'] = 'Tidak Hadir';
+            }
 
-    private function getReasonType(int $jenisalasanId)
-    {
-        return match ($jenisalasanId) {
-            1 => 'Lewat',
-            2 => 'Balik Awal',
-            3 => 'Tidak Hadir',
-            default => 'Lain-lain',
-        };
+            // Add color and text for UI
+            $displayData['boxColor'] = $this->getStatusColor($record->status);
+            $displayData['statusText'] = $this->getStatusText($record->status);
+
+            return $displayData;
+        })->toArray();
     }
 
     private function getStatusColor(int $status)

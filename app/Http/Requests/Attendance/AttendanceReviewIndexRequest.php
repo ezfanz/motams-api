@@ -20,7 +20,7 @@ class AttendanceReviewIndexRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'status' => 'nullable|string|exists:review_statuses,status', // Check that status exists in review_statuses table
+            'status' => 'nullable|string|in:Pending-Review,Approved,Rejected', // Check that status exists in review_statuses table
             'month' => 'nullable|integer|between:1,12',
             'year' => 'nullable|integer|min:1900|max:' . now()->year
         ];

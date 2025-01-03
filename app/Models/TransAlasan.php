@@ -47,6 +47,11 @@ class TransAlasan extends Model
         'updated_at' => 'datetime',
     ];
 
+    public function user()
+    {
+        return $this->belongsTo(User::class, 'idpeg');
+    }
+
     /**
      * Relationship with the Alasan model.
      */

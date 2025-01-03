@@ -24,8 +24,17 @@ class AttendanceReviewController extends Controller
 
     public function index(AttendanceReviewIndexRequest $request): JsonResponse
     {
-        $records = $this->service->getAttendanceRecordsForReview($request->validated());
-        return ResponseHelper::success($records, 'Attendance records retrieved successfully');
+        $filters = $request->only(['status', 'month', 'year']);
+        $filters['user_id'] = Auth::id();
+        $filters['role_id'] = Auth::user()->role_id;
+
+        $attendanceRecords = $this->service->getAttendanceRecordsForReview($filters);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Pending Attendance review records retrieved successfully.',
+            'data' => $attendanceRecords,
+        ]);
     }
 
     public function batchUpdate(BatchReviewRequest $request): JsonResponse
@@ -46,7 +55,8 @@ class AttendanceReviewController extends Controller
     public function processReview(ProcessAttendanceReviewRequest $request)
     {
         $validated = $request->validated();
-        $userId = Auth::id();
+        $userId = Auth::id(); // Get logged-in user ID
+
         $result = $this->service->processReview($validated, $userId);
 
         if ($result['status']) {
