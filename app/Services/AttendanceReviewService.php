@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use App\Models\Status;
 use App\Models\User;
 use App\Models\ReasonTransaction;
+use App\Models\TransAlasan;
 
 
 class AttendanceReviewService
@@ -126,51 +127,51 @@ class AttendanceReviewService
     {
         $role = User::where('id', $userId)->value('role_id');
         $tralasanIds = $data['tralasan_ids'] ?? [];
-        $status = $data['status'];
-        $notes = $data['notes'] ?? '';
+        $alasanStatus = $data['status'];
+        $notes = $data['catatanpengesah'] ?? '';
 
-        if (!in_array($role, [3, 5, 7, 8, 10, 11, 13, 15, 17])) {
+        // Validate user role
+        if (!in_array($role, [3, 6, 7, 9, 10, 12, 13, 16, 17])) {
             return ['status' => false, 'message' => 'User does not have permission to perform this action'];
         }
 
-        $transAlasan = ReasonTransaction::whereIn('id', $tralasanIds)->get();
+        // Retrieve TransAlasan records
+        $transAlasan = TransAlasan::whereIn('id', $tralasanIds)->get();
 
         if ($transAlasan->isEmpty()) {
             return ['status' => false, 'message' => 'No records found'];
         }
 
-        $noApproverCount = User::whereNull('approver_id')
-            ->whereIn('id', $transAlasan->pluck('employee_id'))
-            ->count();
+        // Validate if all records have an approver
+        $noApproverCount = User::whereNull('pengesah_id')
+        ->whereIn('id', $transAlasan->pluck('idpeg'))
+        ->count();
 
         if ($noApproverCount > 0) {
             return ['status' => false, 'message' => 'Some records do not have assigned approvers'];
         }
 
+        // Update each TransAlasan record
+        $currentTimestamp = Carbon::now()->format('Y-m-d H:i:s');
         foreach ($transAlasan as $record) {
-            $record->update([
-                'reviewed_by' => $userId,
-                'review_status' => $status,
-                'review_notes' => $notes,
-                'reviewed_at' => now(),
-                'status' => $status,
-            ]);
-
-            // Additional actions based on status
-            switch ($status) {
-                case 2:
-                    // Logic for success to approver
-                    break;
-                case 3:
-                    // Logic for not verified
-                    break;
-                case 6:
-                    // Logic for need more info
-                    break;
-            }
+            $record->pengesah_id = $userId;
+            $record->status_pengesah = $alasanStatus;
+            $record->catatan_pengesah = $notes;
+            $record->tkh_pengesah_sah = $currentTimestamp;
+            $record->status = $alasanStatus;
+            $record->pengguna = $userId;
+            $record->save();
         }
 
-        return ['status' => true, 'message' => 'Batch review processed successfully'];
-    }
+        // Determine message based on status
+        $message = match ($alasanStatus) {
+            4 => 'Proses kemaskini rekod berjaya dan makluman pengesahan telah dihantar ke Pegawai Seliaan.',
+            5 => 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.',
+            6 => 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.',
+            default => 'Kemaskini tidak diketahui.',
+        };
 
+        return ['status' => true, 'message' => $message];
+    }
+    
 }

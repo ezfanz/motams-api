@@ -23,7 +23,7 @@ class BatchProcessAttendanceReviewRequest extends FormRequest
     {
         return [
             'tralasan_ids' => 'required|array|min:1',
-            'tralasan_ids.*' => 'integer|exists:reason_transactions,id',
+            'tralasan_ids.*' => 'integer|exists:trans_alasan,id',
             'status' => 'required|integer|in:2,3,6',
             'notes' => 'nullable|string|max:255',
         ];
