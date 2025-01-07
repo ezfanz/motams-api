@@ -9,6 +9,11 @@ use App\Http\Requests\Complaint\ComplaintRequest;
 use App\Helpers\ResponseHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
+use Illuminate\Http\Request;
+
+use Illuminate\Support\Facades\Mail;
+use App\Mail\AduanEmail;
+
 
 class ComplaintController extends Controller
 {
@@ -60,4 +65,29 @@ class ComplaintController extends Controller
             return ResponseHelper::error('Complaint not found for deletion', 404);
         }
     }
+
+    /**
+     * Handle the submission of Aduan.
+     *
+     * @param Request $request
+     * @return JsonResponse
+     */
+    public function sendAduan(Request $request)
+    {
+        $validated = $request->validate([
+            'tajuk_aduan' => 'required|string|max:255',
+            'catatan_pegawai' => 'nullable|string|max:1000',
+            'email' => 'required|email',
+        ]);
+
+        // Send email
+        Mail::to($validated['email'])->send(new AduanEmail($validated));
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Aduan has been sent successfully.',
+        ]);
+    }
+
+
 }

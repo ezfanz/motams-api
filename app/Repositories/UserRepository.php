@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\User;
 use Spatie\Permission\Models\Role;
+use Illuminate\Support\Facades\DB;
 
 class UserRepository
 {
@@ -52,5 +53,33 @@ class UserRepository
     public function findRoleById(int $roleId): ?Role
     {
         return Role::find($roleId);
+    }
+
+      /**
+     * Fetch user profile data from the database.
+     *
+     * @param int $userId
+     * @return array|null
+     */
+    public function getUserProfile(int $userId): ?array
+    {
+        $result = DB::table('users')
+            ->leftJoin('department', 'users.department_id', '=', 'department.id')
+            ->leftJoin('roles', 'users.role_id', '=', 'roles.id')
+            ->leftJoin('users AS penyemak', 'users.penyemak_id', '=', 'penyemak.id')
+            ->leftJoin('users AS pengesah', 'users.pengesah_id', '=', 'pengesah.id')
+            ->select(
+                'users.fullname',
+                'users.jawatan',
+                'department.diskripsi AS department',
+                'roles.diskripsi AS role',
+                'penyemak.fullname AS nama_penyemak',
+                'pengesah.fullname AS nama_pengesah'
+            )
+            ->where('users.id', $userId)
+            ->where('users.is_deleted', '!=', 1) // Ensuring soft delete handling
+            ->first();
+
+        return $result ? (array) $result : null; // Cast to array and return
     }
 }

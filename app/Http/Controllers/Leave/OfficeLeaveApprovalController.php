@@ -30,21 +30,27 @@ class OfficeLeaveApprovalController extends Controller
 
     public function index(FilterLeaveApprovalRequest $request)
     {
-        $leaveRequests = $this->service->getPendingApprovals($request->validated());
+        $userId = Auth::id(); // Current logged-in user ID
+        $roleId = Auth::user()->role_id; // Current logged-in user role ID
+        $filters = $request->validated(); // Filters from the request
+    
+        $leaveRequests = $this->service->getPendingApprovals($userId, $roleId, $filters);
+    
         return response()->json(['status' => 'success', 'data' => $leaveRequests]);
     }
 
-     /**
+    /**
      * Batch update leave approvals.
      *
      * @param BatchApprovalRequest $request
      * @return JsonResponse
      */
-
     public function batchUpdate(BatchApprovalRequest $request): JsonResponse
     {
-        $userId = Auth::id();
-        $result = $this->service->batchUpdateApprovalStatus($userId, $request->validated());
+        $userId = Auth::id(); // Get authenticated user ID
+        $data = $request->validated(); // Validate request data
+
+        $result = $this->service->batchUpdateApprovalStatus($userId, $data);
 
         if ($result['status'] === 'success') {
             return response()->json(['status' => 'success', 'message' => $result['message']], 200);

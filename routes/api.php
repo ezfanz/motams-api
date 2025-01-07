@@ -17,6 +17,7 @@ use App\Http\Controllers\Colour\ColourChangeController;
 use App\Http\Controllers\Attendance\AttendanceApprovalController;
 use App\Http\Controllers\Attendance\AttendanceStatusController;
 use App\Http\Controllers\Attendance\AttendanceConfirmationController;
+use App\Http\Controllers\Pengumuman\PengumumanController;
 
 
 
@@ -43,17 +44,19 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
     /**
      * User Management
      */
+    Route::get('/user/profile', [UserController::class, 'getProfile']);
     Route::prefix('users')->group(function () {
         Route::get('/profile', [UserController::class, 'profile'])->name('user.profile');
         Route::get('/colour-changes', [ColourChangeController::class, 'getUserColourChanges']);
-
     });
     Route::apiResource('users', UserController::class);
 
     /**
      * Complaints
      */
+    Route::post('/aduan', [ComplaintController::class, 'sendAduan']);
     Route::apiResource('complaints', ComplaintController::class);
+
 
     /**
      * Attendance Records
@@ -101,8 +104,8 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
             Route::get('/status-options', [OfficeLeaveApprovalController::class, 'getStatusOptions']);
             Route::post('/batch-update', [OfficeLeaveApprovalController::class, 'batchUpdate']);
             Route::get('/summary', [OfficeLeaveApprovalController::class, 'getMonthlySummary']);
-            Route::get('/status-supervised', [OfficeLeaveApprovalController::class, 'getSupervisedApprovalStatus'])
-    ->name('office-leave.approvals.status-supervised');
+            Route::get('/status', [OfficeLeaveApprovalController::class, 'getSupervisedApprovalStatus'])
+                ->name('office-leave.approvals.status-supervised');
 
         });
     });
@@ -160,5 +163,12 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
     Route::prefix('attendance-status')->group(function () {
         Route::get('/list', [AttendanceStatusController::class, 'getStatusList']);
     });
+
+
+    /**
+     * Pengumuman
+     */
+    Route::get('/pengumuman', [PengumumanController::class, 'getPengumuman']);
+
 
 });

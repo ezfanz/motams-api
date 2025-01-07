@@ -16,27 +16,28 @@ class OfficeLeaveApprovalRequest extends FormRequest
 
     /**
      * Get the validation rules that apply to the request.
-     *
-     * @return array<string, \Illuminate\Contracts\Validation\ValidationRule|array<mixed>|string>
      */
     public function rules(): array
     {
         return [
-            'leave_ids' => 'required|array',
-            'leave_ids.*' => 'integer|exists:office_leave_requests,id',
-            'status' => 'required|integer|in:16,17',
-            'approval_notes' => 'nullable|string|max:255',
+            'leave_id' => 'required|integer|exists:office_leave_requests,id,status,15',
+            'statusalasan' => 'required|integer|in:16,17',
+            'catatanpengesah' => 'nullable|string|max:255',
         ];
     }
 
-    public function messages()
+    /**
+     * Get custom validation messages.
+     */
+    public function messages(): array
     {
         return [
-            'leave_ids.required' => 'Leave IDs are required.',
-            'leave_ids.array' => 'Leave IDs must be an array.',
-            'leave_ids.*.exists' => 'One or more leave requests are invalid.',
-            'status.required' => 'Approval status is required.',
-            'status.in' => 'Approval status must be 16 (Approved) or 17 (Rejected).',
+            'leave_id.required' => 'A leave request ID is required.',
+            'leave_id.integer' => 'Leave ID must be an integer.',
+            'leave_id.exists' => 'The selected leave request is invalid or not in a pending state.',
+            'statusalasan.required' => 'An approval status is required.',
+            'statusalasan.in' => 'Approval status must be either 16 (Approved) or 17 (Rejected).',
+            'catatanpengesah.max' => 'Approval notes cannot exceed 255 characters.',
         ];
     }
 }

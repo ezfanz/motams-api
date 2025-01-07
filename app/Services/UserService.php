@@ -369,6 +369,17 @@ public function loginUser(array $credentials): ?array
     
         return [$bilsemakan, $bilpengesahan];
     }
+
+     /**
+     * Fetch user profile data by user ID.
+     *
+     * @param int $userId
+     * @return array|null
+     */
+    public function fetchUserProfile(int $userId): ?array
+    {
+        return $this->userRepository->getUserProfile($userId);
+    }
     
 
 }

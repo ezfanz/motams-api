@@ -11,45 +11,100 @@ use Illuminate\Support\Facades\DB;
 
 class OfficeLeaveApprovalRepository
 {
-    public function filterPendingApprovals(array $filters)
+    public function filterPendingApprovals(int $userId, int $roleId, array $filters)
     {
-        $query = OfficeLeaveRequest::with(['creator', 'leaveType', 'approvalStatus'])
-            ->where('approval_status_id', null);
-
-        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
-            $query->whereBetween('date', [$filters['start_date'], $filters['end_date']]);
+        $query = OfficeLeaveRequest::select(
+            'office_leave_requests.id',
+            'users.fullname',
+            'users.jawatan',
+            'office_leave_requests.leave_type_id',
+            'leave_types.diskripsi as jenis_leave',
+            DB::raw("DATE_FORMAT(office_leave_requests.date_mula, '%d/%m/%Y') AS date_mula"),
+            DB::raw("DATE_FORMAT(office_leave_requests.date_tamat, '%d/%m/%Y') AS date_tamat"),
+            'office_leave_requests.day_timeoff',
+            'office_leave_requests.start_time',
+            'office_leave_requests.end_time',
+            'office_leave_requests.totalday',
+            'office_leave_requests.totalhours',
+            'office_leave_requests.reason',
+            DB::raw("
+                CONCAT(
+                    FLOOR(office_leave_requests.totalhours), ' Jam ', 
+                    ROUND((MOD(office_leave_requests.totalhours, 1) * 60)), ' Minit'
+                ) AS total_hours_minutes
+            "),
+            DB::raw("DATE_FORMAT(office_leave_requests.tkh_mohon, '%d/%m/%Y %h:%i:%s %p') AS tarikh_mohon")
+        )
+        ->leftJoin('leave_types', 'office_leave_requests.leave_type_id', '=', 'leave_types.id')
+        ->leftJoin('users', 'office_leave_requests.idpeg', '=', 'users.id')
+        ->where('office_leave_requests.status', '15');
+    
+        if ($roleId != 3) {
+            // For non-admin roles, filter by approver ID
+            $query->where('office_leave_requests.pelulus_id', $userId);
         }
-
+    
+        // Apply filters
+        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+            $query->whereBetween('office_leave_requests.date_mula', [$filters['start_date'], $filters['end_date']]);
+        }
+    
         if (!empty($filters['employee_name'])) {
             $query->whereHas('creator', function ($q) use ($filters) {
-                $q->where('name', 'like', '%' . $filters['employee_name'] . '%');
+                $q->where('fullname', 'like', '%' . $filters['employee_name'] . '%');
             });
         }
-
-        return $query->paginate(10);
+    
+        return $query->get()->map(function ($leaveRequest) {
+            if ($leaveRequest->leave_type_id == 1) {
+                return [
+                    'name' => $leaveRequest->fullname,
+                    'position' => $leaveRequest->jawatan,
+                    'type' => $leaveRequest->jenis_leave,
+                    'start_date' => $leaveRequest->date_mula,
+                    'end_date' => $leaveRequest->date_tamat,
+                    'days_count' => $leaveRequest->totalday . ' Hari',
+                    'application_date' => $leaveRequest->tarikh_mohon,
+                ];
+            } elseif ($leaveRequest->leave_type_id == 2) {
+                return [
+                    'name' => $leaveRequest->fullname,
+                    'position' => $leaveRequest->jawatan,
+                    'type' => $leaveRequest->jenis_leave,
+                    'date' => $leaveRequest->date_mula,
+                    'day' => $leaveRequest->day_timeoff,
+                    'start_time' => $leaveRequest->start_time,
+                    'end_time' => $leaveRequest->end_time,
+                    'hours_count' => $leaveRequest->total_hours_minutes,
+                    'application_date' => $leaveRequest->tarikh_mohon,
+                ];
+            }
+            return [];
+        });
     }
 
 
- /**
+    /**
      * Update approval statuses for leave requests in batch.
      *
      * @param int $userId
-     * @param array $requestIds
+     * @param array $leaveIds
      * @param int $approvalStatus
      * @param string|null $approvalNotes
      * @return bool
      */
-    public function updateApprovalStatusForRequests(int $userId, array $requestIds, int $approvalStatus, ?string $approvalNotes): bool
+    public function updateApprovalStatusForRequests(int $userId, array $leaveIds, int $approvalStatus, ?string $approvalNotes): bool
     {
         $updateData = [
-            'approval_status_id' => $approvalStatus,
-            'approval_notes' => $approvalNotes,
-            'approval_date' => Carbon::now(),
-            'approved_by' => $userId,
+            'pengesah_id' => $userId,
+            'status_pelulus' => $approvalStatus,
+            'catatan_pelulus' => $approvalNotes,
+            'tkh_kelulusan' => Carbon::now(),
             'status' => $approvalStatus,
+            'pengguna' => $userId,
         ];
 
-        return OfficeLeaveRequest::whereIn('id', $requestIds)
+        return OfficeLeaveRequest::whereIn('id', $leaveIds)
             ->update($updateData);
     }
 
@@ -115,52 +170,53 @@ class OfficeLeaveApprovalRepository
      * @param int $userId
      * @return int|null
      */
-    public function getDepartmentByUserId(int $userId): ?String
+    public function getDepartmentByUserId(int $userId): ?string
     {
         return DB::table('users')
-        ->where('id', $userId)
-            ->whereNull('deleted_at') // Ensure soft delete handling
-            ->value('department');
+            ->where('id', $userId)
+            ->where('is_deleted', '!=', 1) // Ensure soft delete handling
+            ->value('department_id');
     }
 
 
     public function getSupervisedApprovalStatuses(array $filters, String $departmentId): array
     {
         $query = DB::table('office_leave_requests as olr')
-        ->leftJoin('users as u', 'olr.created_by', '=', 'u.id')
+        ->leftJoin('users as u', 'olr.idpeg', '=', 'u.id')
         ->leftJoin('leave_types as lt', 'olr.leave_type_id', '=', 'lt.id')
         // ->leftJoin('department as d', 'u.department_id', '=', 'd.id')
-        ->leftJoin('statuses as s', 'olr.status', '=', 's.id')
+        ->leftJoin('status as s', 'olr.status', '=', 's.id')
         ->select(
             'olr.id',
-            'u.name as nama_pegawai',
-            'u.position as jawatan',
+            'u.fullname as nama_pegawai',
+            'u.jawatan as jawatan',
             // 'd.diskripsi as deptname',
-            'lt.name as jenis_leave',
-            DB::raw("DATE_FORMAT(olr.date, '%d/%m/%Y') as tarikh"),
-            'olr.day as hari',
+            'lt.diskripsi as jenis_leave',
+            DB::raw("DATE_FORMAT(olr.day_timeoff, '%d/%m/%Y') as tarikh"),
+            'olr.day_timeoff as hari',
             'olr.start_time',
             'olr.end_time',
-            DB::raw("CONCAT(FLOOR(olr.total_hours), ' Jam ', ROUND((MOD(olr.total_hours, 1) * 60)), ' Minit') AS total_hours_minutes"),
+            DB::raw("CONCAT(FLOOR(olr.totalhours), ' Jam ', ROUND((MOD(olr.totalhours, 1) * 60)), ' Minit') AS total_hours_minutes"),
             'olr.reason',
-            's.description as disk_status',
-            DB::raw("DATE_FORMAT(olr.approval_date, '%d/%m/%Y %h:%i:%s %p') as tarikh_kelulusan")
+            's.diskripsi as disk_status',
+            DB::raw("DATE_FORMAT(olr.tkh_kelulusan, '%d/%m/%Y %h:%i:%s %p') as tarikh_kelulusan")
         )
-            ->where('u.department', $departmentId)
-            ->whereNull('olr.deleted_at');
+            ->where('u.department_id', $departmentId)
+            ->where('olr.is_deleted', '!=', 1);
 
         // Apply filters
         if (!empty($filters['pegawai_id'])) {
-            $query->where('olr.created_by', $filters['pegawai_id']);
+            $query->where('olr.idpeg', $filters['pegawai_id']);
         }
 
-        if (!empty($filters['month_start']) && !empty($filters['month_end'])) {
-            $query->whereBetween('olr.date', [
-                Carbon::parse("{$filters['month_start']}-01"),
-                Carbon::parse("{$filters['month_end']}-01")->endOfMonth(),
-            ]);
-        }
+    // Apply filters for date range
+    if (!empty($filters['month_start']) && !empty($filters['month_end'])) {
+        $query->whereBetween('olr.date_mula', [
+            Carbon::parse("{$filters['month_start']}-01"),
+            Carbon::parse("{$filters['month_end']}-01")->endOfMonth(),
+        ]);
+    }
 
-        return $query->orderBy('olr.date', 'desc')->get()->toArray();
+        return $query->orderBy('olr.date_mula', 'desc')->get()->toArray();
     }
 }

@@ -14,17 +14,18 @@ class OfficeLeaveApprovalService
         $this->repository = $repository;
     }
 
-    public function getPendingApprovals(array $filters)
+    public function getPendingApprovals(int $userId, int $roleId, array $filters)
     {
-        return $this->repository->filterPendingApprovals($filters);
+        return $this->repository->filterPendingApprovals($userId, $roleId, $filters);
     }
+    
 
     public function getStatusOptions()
     {
         return $this->repository->getAllStatuses();
     }
 
-/**
+    /**
      * Batch update approval statuses for office leave requests.
      *
      * @param int $userId
@@ -35,14 +36,19 @@ class OfficeLeaveApprovalService
     {
         $approvalStatus = $data['statusalasan'];
         $approvalNotes = $data['catatanpengesah'] ?? null;
-        $requestIds = $data['leave_id'];
+        $leaveIds = $data['leave_id'];
 
-        $result = $this->repository->updateApprovalStatusForRequests($userId, $requestIds, $approvalStatus, $approvalNotes);
+        // Call the repository method to update approval statuses
+        $result = $this->repository->updateApprovalStatusForRequests($userId, $leaveIds, $approvalStatus, $approvalNotes);
 
         if ($result) {
+            $message = $approvalStatus == 16
+                ? 'Proses kemaskini rekod berjaya dan makluman kelulusan telah dihantar ke Pegawai Seliaan.'
+                : 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.';
+
             return [
                 'status' => 'success',
-                'message' => 'Leave requests updated successfully.',
+                'message' => $message,
             ];
         }
 
@@ -63,12 +69,13 @@ class OfficeLeaveApprovalService
     public function approveLeaveRequest(array $data, int $userId): array
     {
         $leaveId = $data['leave_id'];
-        $status = $data['status'];
-        $notes = $data['approval_notes'];
+        $status = $data['statusalasan'];
+        $notes = $data['catatanpengesah'];
         $timestamp = Carbon::now();
 
         // Validate approver permissions
         $userRole = $this->repository->getUserRole($userId);
+
         if (!in_array($userRole, [3, 6, 7, 9, 10, 12, 13, 16, 17])) {
             return ['status' => false, 'message' => 'Unauthorized role for approval'];
         }

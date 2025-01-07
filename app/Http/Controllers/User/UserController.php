@@ -9,6 +9,8 @@ use App\Http\Requests\User\UpdateUserRequest;
 use App\Services\UserService;
 use App\Helpers\ResponseHelper;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Http\JsonResponse;
+
 
 
 class UserController extends Controller
@@ -54,5 +56,22 @@ class UserController extends Controller
     {
         $userProfile = $this->userService->getUserProfile(Auth::id());
         return ResponseHelper::success($userProfile, 'Profile retrieved successfully');
+    }
+
+    /**
+     * Fetch the profile details of the currently authenticated user.
+     *
+     * @return JsonResponse
+     */
+    public function getProfile(): JsonResponse
+    {
+        $userId = Auth::id(); // Get the authenticated user ID
+
+        $profile = $this->userService->fetchUserProfile($userId);
+
+        return response()->json([
+            'status' => 'success',
+            'data' => $profile,
+        ]);
     }
 }

@@ -2,8 +2,8 @@
 
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Pengumuman extends Model
 {
@@ -12,6 +12,14 @@ class Pengumuman extends Model
     protected $table = 'pengumuman';
 
     protected $fillable = [
-        'diskripsi', 'created_at', 'updated_at',
+        'butiran',
+        'tkhmula',
+        'tkhtamat',
+        'department_id',
+        'is_deleted',
+        'id_pencipta',
+        'pengguna',
+        'created_at',
+        'updated_at',
     ];
 }
