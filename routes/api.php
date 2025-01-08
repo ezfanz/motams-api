@@ -18,6 +18,7 @@ use App\Http\Controllers\Attendance\AttendanceApprovalController;
 use App\Http\Controllers\Attendance\AttendanceStatusController;
 use App\Http\Controllers\Attendance\AttendanceConfirmationController;
 use App\Http\Controllers\Pengumuman\PengumumanController;
+use App\Http\Controllers\Attendance\AttendanceActionController;
 
 
 
@@ -162,6 +163,13 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
      */
     Route::prefix('attendance-status')->group(function () {
         Route::get('/list', [AttendanceStatusController::class, 'getStatusList']);
+    });
+
+    /**
+     * Attendance Action
+     */
+    Route::prefix('attendance-action')->group(function () {
+        Route::post('/balik-awal', [AttendanceActionController::class, 'handleEarlyDeparture']);
     });
 
 
