@@ -170,6 +170,10 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
      */
     Route::prefix('attendance-action')->group(function () {
         Route::post('/balik-awal', [AttendanceActionController::class, 'handleEarlyDeparture']);
+        Route::post('/datang-lambat', [AttendanceActionController::class, 'handleLateArrival']);
+        Route::post('/tidak-hadir', [AttendanceActionController::class, 'handleAbsent']);
+
+
     });
 
 
