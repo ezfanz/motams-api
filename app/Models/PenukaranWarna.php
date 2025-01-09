@@ -12,6 +12,25 @@ class PenukaranWarna extends Model
     protected $table = 'penukaranwarna';
 
     protected $fillable = [
-        'diskripsi', 'created_at', 'updated_at',
+        'idpeg',
+        'staffid',
+        'tarikhdari',
+        'tarikhhingga',
+        'bilkali',
+        'warna',
+        'status',
+        'srt_tnjk_sbb_yt',
+        'kelulusan_kj',
+        'catatan',
+        'pgw_jana',
+        'tkh_jana',
+        'id_penyemak',
+        'id_pengesah',
+        'flag',
+        'is_deleted',
+        'id_pencipta',
+        'pengguna',
+        'created_at',
+        'updated_at',
     ];
 }
