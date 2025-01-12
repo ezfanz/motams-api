@@ -36,14 +36,21 @@ class AuthController extends Controller
         $credentials = $request->only(['email', 'password']);
 
         try {
-            $response = $this->userService->loginUser($credentials);
+            // Step 1: Attempt to authenticate via Active Directory
+            if (!$this->userService->activeDirectoryAuthenticate($credentials)) {
+                return ResponseHelper::error('Active Directory authentication failed', 401);
+            }
 
-            if (!$response) {
+            // Step 2: Proceed with the existing JWT login flow
+            $jwtResponse = $this->userService->loginUser($credentials);
+
+            if (!$jwtResponse) {
                 return ResponseHelper::error('Invalid email or password', 401);
             }
 
-            return ResponseHelper::success($response, 'Login successful');
+            return ResponseHelper::success($jwtResponse, 'Login successful');
         } catch (\Exception $e) {
+            Log::error('Login error: ' . $e->getMessage());
             return ResponseHelper::error($e->getMessage(), 500);
         }
     }

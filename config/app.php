@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+  |--------------------------------------------------------------------------
+  | Application Active Directory URL
+  |--------------------------------------------------------------------------
+  |
+  | This is the URL used to authenticate users against the Active Directory.
+  | You should configure this in your ".env" file for easier environment management.
+  |
+  */
+
+    'ad_url' => env('APP_API_AD_URL', 'http://api.mot.gov.my'),
+
 ];

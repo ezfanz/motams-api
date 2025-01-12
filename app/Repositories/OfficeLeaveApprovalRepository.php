@@ -96,7 +96,7 @@ class OfficeLeaveApprovalRepository
     public function updateApprovalStatusForRequests(int $userId, array $leaveIds, int $approvalStatus, ?string $approvalNotes): bool
     {
         $updateData = [
-            'pengesah_id' => $userId,
+            'pelulus_id' => $userId,
             'status_pelulus' => $approvalStatus,
             'catatan_pelulus' => $approvalNotes,
             'tkh_kelulusan' => Carbon::now(),
