@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\RegisterUserRequest;
 use App\Services\UserService;
 use App\Helpers\ResponseHelper;
 use App\Http\Requests\Auth\LoginUserRequest;
+use Illuminate\Support\Facades\Log;
 
 
 class AuthController extends Controller
@@ -36,9 +37,12 @@ class AuthController extends Controller
         $credentials = $request->only(['email', 'password']);
 
         try {
-            // Step 1: Attempt to authenticate via Active Directory
-            if (!$this->userService->activeDirectoryAuthenticate($credentials)) {
-                return ResponseHelper::error('Active Directory authentication failed', 401);
+            // Check if bypassing Active Directory authentication is enabled
+            if (!config('app.ad_bypass', false)) {
+                // Step 1: Attempt to authenticate via Active Directory
+                if (!$this->userService->activeDirectoryAuthenticate($credentials)) {
+                    return ResponseHelper::error('Active Directory authentication failed', 401);
+                }
             }
 
             // Step 2: Proceed with the existing JWT login flow
