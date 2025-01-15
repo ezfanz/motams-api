@@ -19,6 +19,7 @@ use App\Http\Controllers\Attendance\AttendanceStatusController;
 use App\Http\Controllers\Attendance\AttendanceConfirmationController;
 use App\Http\Controllers\Pengumuman\PengumumanController;
 use App\Http\Controllers\Attendance\AttendanceActionController;
+use App\Http\Controllers\Alasan\AlasanController;
 
 
 
@@ -182,5 +183,9 @@ Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
      */
     Route::get('/pengumuman', [PengumumanController::class, 'getPengumuman']);
 
+    /**
+     * Alasan
+     */
+    Route::get('/alasan', [AlasanController::class, 'index']);
 
 });
