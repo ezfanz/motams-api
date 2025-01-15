@@ -123,4 +123,28 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+  |--------------------------------------------------------------------------
+  | Application Active Directory URL
+  |--------------------------------------------------------------------------
+  |
+  | This is the URL used to authenticate users against the Active Directory.
+  | You should configure this in your ".env" file for easier environment management.
+  |
+  */
+
+    'ad_url' => env('APP_API_AD_URL', 'http://api.mot.gov.my'),
+
+    /*
+   |--------------------------------------------------------------------------
+   | Active Directory Authentication Bypass
+   |--------------------------------------------------------------------------
+   |
+   | This flag allows bypassing Active Directory authentication. This is useful
+   | for local development or testing where Active Directory services are unavailable.
+   |
+   */
+
+    'ad_bypass' => env('APP_AD_BYPASS', false),
+
 ];

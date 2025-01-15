@@ -19,6 +19,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Models\PenukaranWarna;
+use GuzzleHttp\Client;
 
 class UserService
 {
@@ -379,6 +380,40 @@ public function loginUser(array $credentials): ?array
     public function fetchUserProfile(int $userId): ?array
     {
         return $this->userRepository->getUserProfile($userId);
+    }
+
+
+     /**
+     * Authenticate a user with Active Directory.
+     *
+     * @param array $credentials
+     * @return bool
+     */
+    public function activeDirectoryAuthenticate(array $credentials): bool
+    {
+        try {
+            $client = new Client();
+            $url = config('app.ad_url');
+
+            $response = $client->request('GET', $url, [
+                'query' => [
+                    'email' => $credentials['email'],
+                    'pass' => $credentials['password'],
+                ],
+            ]);
+
+            $data = json_decode($response->getBody(), true);
+
+            // Check if Active Directory returned a valid response
+            if (!isset($data['status']) || $data['status'] !== 'success') {
+                return false;
+            }
+
+            return true; // Active Directory authentication succeeded
+        } catch (\Exception $e) {
+            Log::error('Active Directory error: ' . $e->getMessage());
+            return false;
+        }
     }
     
 
