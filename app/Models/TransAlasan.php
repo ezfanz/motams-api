@@ -83,4 +83,9 @@ class TransAlasan extends Model
     {
         return $this->belongsTo(User::class, 'pengesah_id');
     }
+
+    public function status()
+    {
+        return $this->belongsTo(Status::class, 'status', 'id');
+    }
 }

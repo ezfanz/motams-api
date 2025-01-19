@@ -15,17 +15,17 @@ class AttendanceConfirmationService
             'user.department:id,diskripsi',
             'jenisAlasan:id,diskripsi_bm',
             'alasan:id,diskripsi',
-            'reviewer:id,fullname',
+            'penyemak:id,fullname', // Corrected from 'reviewer' to 'penyemak'
             'status:id,diskripsi',
         ])
         ->where('id', $id)
         ->where('is_deleted', '!=', 1)
         ->first();
-
+    
         if (!$transaction) {
             return null;
         }
-
+    
         return [
             'fullname' => $transaction->user->fullname ?? '',
             'jawatan' => $transaction->user->jawatan ?? '',
@@ -38,7 +38,7 @@ class AttendanceConfirmationService
             'tarikh_penyelarasan' => $transaction->tkh_peg_alasan
                 ? Carbon::parse($transaction->tkh_peg_alasan)->format('d/m/Y h:i:s A')
                 : '',
-            'pegawai_semakan' => $transaction->reviewer->fullname ?? '',
+            'pegawai_semakan' => $transaction->penyemak->fullname ?? '', // Corrected from 'reviewer' to 'penyemak'
             'catatan_pegawai_semakan' => $transaction->catatan_penyemak ?? '',
             'status_semakan' => $transaction->status->diskripsi ?? '',
             'tarikh_semakan' => $transaction->tkh_penyemak_semak
