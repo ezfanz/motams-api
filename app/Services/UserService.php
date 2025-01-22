@@ -41,55 +41,49 @@ class UserService
         return ApiResponseHelper::formatUserResponse($user);
     }
 
-   /**
- * Service logic for logging in a user.
- *
- * @param array $credentials
- * @return array|null
- */
-public function loginUser(array $credentials): ?array
-{
-    try {
-        // Find the user while bypassing global scopes to avoid interference
-        $user = User::where('is_deleted', '!=', 1)
-            ->where('email', $credentials['email'])
-            ->first();
+    /**
+     * Service logic for logging in a user.
+     *
+     * @param array $credentials
+     * @return array|null
+     */
+    public function loginUser(array $credentials): ?array
+    {
+        try {
+            // Find the user while bypassing global scopes to avoid interference
+            $user = User::where('is_deleted', '!=', 1)
+                ->where('username', $credentials['username']) // Changed to username
+                ->first();
 
-        // Verify the user exists
-        if (!$user) {
-            throw new \Exception('User not found');
+            // Verify the user exists
+            if (!$user) {
+                throw new \Exception('User not found');
+            }
+
+            // Verify the password
+            if (!Hash::check($credentials['password'], $user->password)) {
+                throw new \Exception('Invalid password');
+            }
+
+            // Generate the JWT token using credentials
+            if (!$token = Auth::attempt(['username' => $credentials['username'], 'password' => $credentials['password']])) {
+                throw new \Exception('Invalid username or password');
+            }
+
+            // Retrieve the authenticated user
+            $user = Auth::user();
+
+            // Return the formatted user data and token
+            return [
+                'user' => ApiResponseHelper::formatUserResponse($user),
+                'token' => $this->formatTokenResponse($token),
+            ];
+        } catch (\Exception $e) {
+            // Log the error for debugging and return null
+            Log::error('Login error: ' . $e->getMessage());
+            return null;
         }
-
-        // Verify the password
-        if (!Hash::check($credentials['password'], $user->password)) {
-            throw new \Exception('Invalid password');
-        }
-
-        Log::info('Auth::attempt failed', ['credentials' => $credentials]);
-        // Generate the JWT token using credentials
-        if (!$token = Auth::attempt($credentials)) {
-            throw new \Exception('Invalid email or password');
-        }
-
-     
-        // Retrieve the authenticated user
-        $user = Auth::user();
-
-        // Optional: Update the user's last login timestamp
-        // $user->last_login_at = now();
-        // $user->save();
-
-        // Return the formatted user data and token
-        return [
-            'user' => ApiResponseHelper::formatUserResponse($user),
-            'token' => $this->formatTokenResponse($token),
-        ];
-    } catch (\Exception $e) {
-        // Log the error for debugging and return null
-        Log::error('Login error: ' . $e->getMessage());
-        return null;
     }
-}
 
 
     protected function formatTokenResponse($token): array
@@ -300,14 +294,14 @@ public function loginUser(array $credentials): ?array
         $currentDay = Carbon::now()->format('d');
         $currentMonth = Carbon::now()->format('Y-m');
         $lastMonth = Carbon::now()->subMonth()->format('Y-m');
-    
+
         $bilsemakan = 0;
         $bilpengesahan = 0;
-    
+
         // Define role categories for semakan and pengesahan
         $semakanRoles = [5, 7, 8, 10, 11, 13, 15, 17]; // Penyemak roles
         $pengesahanRoles = [6, 7, 9, 10, 12, 13, 16, 17]; // Pengesah roles
-    
+
         if ($role) {
             if (in_array($role, [3, 2])) { // Admin or Pentadbir
                 if ($currentDay > 10) {
@@ -315,7 +309,7 @@ public function loginUser(array $credentials): ?array
                         ->where('status', 1)
                         ->whereMonth('log_datetime', now()->month)
                         ->count();
-    
+
                     $bilpengesahan = TransAlasan::where('is_deleted', '!=', 1)
                         ->where('status', 2)
                         ->whereMonth('log_datetime', now()->month)
@@ -328,7 +322,7 @@ public function loginUser(array $credentials): ?array
                                 ->orWhereMonth('log_datetime', now()->subMonth()->month);
                         })
                         ->count();
-    
+
                     $bilpengesahan = TransAlasan::where('is_deleted', '!=', 1)
                         ->where('status', 2)
                         ->where(function ($query) use ($currentMonth, $lastMonth) {
@@ -338,7 +332,7 @@ public function loginUser(array $credentials): ?array
                         ->count();
                 }
             }
-    
+
             if (in_array($role, $semakanRoles)) { // Penyemak roles
                 $bilsemakan = TransAlasan::where('status', 1)
                     ->where('is_deleted', '!=', 1)
@@ -352,7 +346,7 @@ public function loginUser(array $credentials): ?array
                     })
                     ->count();
             }
-    
+
             if (in_array($role, $pengesahanRoles)) { // Pengesah roles
                 $bilpengesahan = TransAlasan::where('status', 2)
                     ->where('is_deleted', '!=', 1)
@@ -367,11 +361,11 @@ public function loginUser(array $credentials): ?array
                     ->count();
             }
         }
-    
+
         return [$bilsemakan, $bilpengesahan];
     }
 
-     /**
+    /**
      * Fetch user profile data by user ID.
      *
      * @param int $userId
@@ -383,7 +377,7 @@ public function loginUser(array $credentials): ?array
     }
 
 
-     /**
+    /**
      * Authenticate a user with Active Directory.
      *
      * @param array $credentials
@@ -397,7 +391,7 @@ public function loginUser(array $credentials): ?array
 
             $response = $client->request('GET', $url, [
                 'query' => [
-                    'email' => $credentials['email'],
+                    'username' => $credentials['username'], // Changed to username
                     'pass' => $credentials['password'],
                 ],
             ]);
@@ -415,6 +409,4 @@ public function loginUser(array $credentials): ?array
             return false;
         }
     }
-    
-
 }

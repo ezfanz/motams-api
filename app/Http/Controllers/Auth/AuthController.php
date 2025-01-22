@@ -34,7 +34,7 @@ class AuthController extends Controller
      */
     public function login(LoginUserRequest $request)
     {
-        $credentials = $request->only(['email', 'password']);
+        $credentials = $request->only(['username', 'password']); // Changed to username and password
 
         try {
             // Check if bypassing Active Directory authentication is enabled
@@ -49,7 +49,7 @@ class AuthController extends Controller
             $jwtResponse = $this->userService->loginUser($credentials);
 
             if (!$jwtResponse) {
-                return ResponseHelper::error('Invalid email or password', 401);
+                return ResponseHelper::error('Invalid username or password', 401); // Updated error message
             }
 
             return ResponseHelper::success($jwtResponse, 'Login successful');
@@ -107,4 +107,3 @@ class AuthController extends Controller
         ]);
     }
 }
-
