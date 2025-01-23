@@ -34,22 +34,27 @@ class AuthController extends Controller
      */
     public function login(LoginUserRequest $request)
     {
-        $credentials = $request->only(['username', 'password']); // Changed to username and password
+        $credentials = $request->only(['username', 'password']);
 
         try {
-            // Check if bypassing Active Directory authentication is enabled
+            // Step 1: Check Active Directory authentication if bypass is disabled
+            $ADUser = null;
             if (!config('app.ad_bypass', false)) {
-                // Step 1: Attempt to authenticate via Active Directory
-                if (!$this->userService->activeDirectoryAuthenticate($credentials)) {
+                $ADUser = $this->userService->activeDirectoryAuthenticateAndRetrieve($credentials);
+
+                if (!$ADUser) {
                     return ResponseHelper::error('Active Directory authentication failed', 401);
                 }
+
+                // Sync user data with AD and ensure it exists locally
+                $this->userService->syncActiveDirectoryUser($ADUser);
             }
 
-            // Step 2: Proceed with the existing JWT login flow
-            $jwtResponse = $this->userService->loginUser($credentials);
+            // Step 2: Proceed with the existing JWT login flow, passing ADUser for validation
+            $jwtResponse = $this->userService->loginUser($credentials, $ADUser);
 
             if (!$jwtResponse) {
-                return ResponseHelper::error('Invalid username or password', 401); // Updated error message
+                return ResponseHelper::error('Invalid username or password', 401);
             }
 
             return ResponseHelper::success($jwtResponse, 'Login successful');

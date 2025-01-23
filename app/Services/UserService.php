@@ -20,6 +20,11 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Log;
 use App\Models\PenukaranWarna;
 use GuzzleHttp\Client;
+use App\Models\Department;
+use App\Models\ActiveDepartment;
+use App\Helpers\TitleHelper;
+
+
 
 class UserService
 {
@@ -45,37 +50,36 @@ class UserService
      * Service logic for logging in a user.
      *
      * @param array $credentials
+     * @param object|null $ADUser
      * @return array|null
      */
-    public function loginUser(array $credentials): ?array
+    public function loginUser(array $credentials, ?object $ADUser = null): ?array
     {
         try {
-            // Find the user while bypassing global scopes to avoid interference
+            // Find the user by username while bypassing global scopes
             $user = User::where('is_deleted', '!=', 1)
                 ->where('username', $credentials['username']) // Changed to username
                 ->first();
 
             // Verify the user exists
             if (!$user) {
-                throw new \Exception('User not found');
+                throw new \Exception('User not found in the local database');
             }
 
-            // Verify the password
-            if (!Hash::check($credentials['password'], $user->password)) {
-                throw new \Exception('Invalid password');
+            // Verify the username matches the AD response if provided
+            if ($ADUser && $ADUser->username !== $user->username) {
+                throw new \Exception('Active Directory username mismatch');
             }
 
-            // Generate the JWT token using credentials
-            if (!$token = Auth::attempt(['username' => $credentials['username'], 'password' => $credentials['password']])) {
-                throw new \Exception('Invalid username or password');
-            }
+            // Generate the JWT token using only the username
+            $token = Auth::login($user);
 
             // Retrieve the authenticated user
-            $user = Auth::user();
+            $authenticatedUser = Auth::user();
 
             // Return the formatted user data and token
             return [
-                'user' => ApiResponseHelper::formatUserResponse($user),
+                'user' => ApiResponseHelper::formatUserResponse($authenticatedUser),
                 'token' => $this->formatTokenResponse($token),
             ];
         } catch (\Exception $e) {
@@ -378,12 +382,12 @@ class UserService
 
 
     /**
-     * Authenticate a user with Active Directory.
+     * Authenticate a user with Active Directory and retrieve their details.
      *
      * @param array $credentials
-     * @return bool
+     * @return object|null
      */
-    public function activeDirectoryAuthenticate(array $credentials): bool
+    public function activeDirectoryAuthenticateAndRetrieve(array $credentials): ?object
     {
         try {
             $client = new Client();
@@ -391,22 +395,124 @@ class UserService
 
             $response = $client->request('GET', $url, [
                 'query' => [
-                    'username' => $credentials['username'], // Changed to username
+                    'email' => $credentials['username'],
                     'pass' => $credentials['password'],
                 ],
             ]);
 
             $data = json_decode($response->getBody(), true);
 
-            // Check if Active Directory returned a valid response
-            if (!isset($data['status']) || $data['status'] !== 'success') {
-                return false;
+            // Log Active Directory response for debugging
+            Log::info('Active Directory Authentication Response', ['response' => $data]);
+
+            // Validate the required fields
+            $requiredFields = ['username', 'userprincipalname'];
+            foreach ($requiredFields as $field) {
+                if (!isset($data[$field])) {
+                    return null; // Missing required field
+                }
             }
 
-            return true; // Active Directory authentication succeeded
+            // Ensure username matches
+            if ($data['username'] !== $credentials['username']) {
+                return null; // Username mismatch
+            }
+
+            return (object) $data; // Return AD user data
         } catch (\Exception $e) {
             Log::error('Active Directory error: ' . $e->getMessage());
-            return false;
+            return null;
+        }
+    }
+
+
+    /**
+     * Sync Active Directory user with local database.
+     *
+     * @param object $ADUser
+     * @return void
+     */
+    public function syncActiveDirectoryUser($ADUser)
+    {
+        $user = User::where('username', $ADUser->username)->first();
+        $datenow = Carbon::now()->format('Y-m-d H:i:s');
+
+        // Find or create the user's department
+        $department = Department::firstOrCreate(
+            ['diskripsi' => $ADUser->department],
+            ['created_at' => $datenow]
+        );
+
+        Log::info('Department sync', [
+            'department' => $department,
+            'ADUser_department' => $ADUser->department,
+        ]);
+
+        if ($user) {
+            // Update existing user details
+            $user->update([
+                'fullname' => $ADUser->displayname,
+                'email' => $ADUser->userprincipalname,
+                'department_id' => $department->id,
+                'phone' => $ADUser->telephonenumber,
+                'jawatan' => $ADUser->title,
+                'gred' => TitleHelper::getGradeFromTitle($ADUser->title), // Use helper
+                'kump_khidmat' => TitleHelper::getServiceGroupFromTitle($ADUser->title), // Use helper
+            ]);
+
+            Log::info('User updated', [
+                'user_id' => $user->id,
+                'username' => $ADUser->username,
+                'updated_data' => [
+                    'fullname' => $ADUser->displayname,
+                    'email' => $ADUser->userprincipalname,
+                    'department_id' => $department->id,
+                    'phone' => $ADUser->telephonenumber,
+                    'jawatan' => $ADUser->title,
+                    'gred' => TitleHelper::getGradeFromTitle($ADUser->title),
+                    'kump_khidmat' => TitleHelper::getServiceGroupFromTitle($ADUser->title),
+                ],
+            ]);
+        } else {
+            // Create a new user
+            $user = User::create([
+                'username' => $ADUser->username,
+                'fullname' => $ADUser->displayname,
+                'email' => $ADUser->userprincipalname,
+                'department_id' => $department->id,
+                'phone' => $ADUser->telephonenumber,
+                'jawatan' => $ADUser->title,
+                'gred' => TitleHelper::getGradeFromTitle($ADUser->title), // Use helper
+                'kump_khidmat' => TitleHelper::getServiceGroupFromTitle($ADUser->title), // Use helper
+            ]);
+
+            Log::info('User created', [
+                'user_id' => $user->id,
+                'username' => $ADUser->username,
+                'created_data' => [
+                    'fullname' => $ADUser->displayname,
+                    'email' => $ADUser->userprincipalname,
+                    'department_id' => $department->id,
+                    'phone' => $ADUser->telephonenumber,
+                    'jawatan' => $ADUser->title,
+                    'gred' => TitleHelper::getGradeFromTitle($ADUser->title),
+                    'kump_khidmat' => TitleHelper::getServiceGroupFromTitle($ADUser->title),
+                ],
+            ]);
+
+            ActiveDepartment::create([
+                'idpeg' => $user->id,
+                'datestarts' => $datenow,
+                'department_id' => $department->id,
+                'id_pencipta' => $user->id,
+            ]);
+
+            Log::info('ActiveDepartment record created', [
+                'idpeg' => $user->id,
+                'datestarts' => $datenow,
+                'department_id' => $department->id,
+                'id_pencipta' => $user->id,
+            ]);
         }
     }
 }
