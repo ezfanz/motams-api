@@ -11,7 +11,9 @@ use App\Models\User;
 use App\Models\ReasonTransaction;
 use App\Models\TransAlasan;
 use Carbon\Carbon;
+use App\Models\Status;
 
+ 
 
 class AttendanceRecordRepository
 {
@@ -613,13 +615,10 @@ class AttendanceRecordRepository
     {
         $userId = $filters['user_id'];
         $roleId = $filters['role_id'];
-        $month = $filters['month'] ?? now()->month;
-        $year = $filters['year'] ?? now()->year;
+        $month = $filters['month'] ?? null;
+        $year = $filters['year'] ?? null;
         $status = $filters['status'] ?? null;
-
-        $firstDayOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateTimeString();
-        $lastDayOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
-
+    
         $query = DB::table('trans_alasan')
             ->select(
                 'trans_alasan.id',
@@ -636,24 +635,29 @@ class AttendanceRecordRepository
             ->leftJoin('users', 'trans_alasan.idpeg', '=', 'users.id')
             ->leftJoin('alasan', 'trans_alasan.alasan_id', '=', 'alasan.id')
             ->leftJoin('jenis_alasan', 'trans_alasan.jenisalasan_id', '=', 'jenis_alasan.id')
-            ->where('trans_alasan.is_deleted', '!=', 1)
-            ->whereBetween('trans_alasan.log_datetime', [$firstDayOfMonth, $lastDayOfMonth]);
-
+            ->where('trans_alasan.is_deleted', '!=', 1);
+    
         // Role-based filtering
-        if ($roleId == 3) {
-            // Admin sees all records
-        } else {
-            // Reviewers or Approvers
+        if ($roleId != 3) { // Non-admin roles
             $query->where('users.penyemak_id', $userId);
         }
-
+    
         // Status-based filtering
-        if ($status) {
+        if (!empty($status)) {
             $query->where('trans_alasan.status', $status);
         }
-
+    
+        // Month-year filtering
+        if (!empty($month) && !empty($year)) {
+            $firstDayOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateTimeString();
+            $lastDayOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
+            $query->whereBetween('trans_alasan.log_datetime', [$firstDayOfMonth, $lastDayOfMonth]);
+        }
+    
+        // Order by log date descending
         $query->orderBy('trans_alasan.log_datetime', 'DESC');
-
+    
+        // Map the results for UI formatting
         return $query->get()->map(function ($record) {
             return [
                 'name' => $record->fullname,
@@ -663,10 +667,10 @@ class AttendanceRecordRepository
                 'time' => date('h:i:s A', strtotime($record->log_datetime)),
                 'reason' => $record->reason,
                 'type' => $this->getReasonType($record->jenisalasan_id),
-                'statusColor' => $this->getStatusColor($record->status),
-                'statusText' => $this->getStatusText($record->status),
+                'statusColor' => Status::getStatusColor($record->status),
+                'statusText' => Status::getStatusName($record->status),
             ];
-        });
+        })->toArray();
     }
 
     private function getReasonType(int $reasonTypeId)
@@ -698,6 +702,7 @@ class AttendanceRecordRepository
             default => 'Tidak Valid',
         };
     }
+
 
 
 

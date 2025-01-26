@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Attendance;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\Status;
 
 class AttendanceReviewIndexRequest extends FormRequest
 {
@@ -14,15 +15,21 @@ class AttendanceReviewIndexRequest extends FormRequest
         return true;
     }
 
-    /**
+   /**
      * Get the validation rules that apply to the request.
      */
     public function rules(): array
     {
         return [
-            'status' => 'nullable|string|in:Pending-Review,Approved,Rejected', // Check that status exists in review_statuses table
+            'status' => 'nullable|integer|in:' . implode(',', [
+                Status::MENUNGGU_SEMAKAN,
+                Status::DITERIMA_PENYEMAK,
+                Status::TIDAK_DITERIMA_PENYEMAK,
+                Status::DITERIMA_PENGESAH,
+                Status::TIDAK_DITERIMA_PENGESAH,
+            ]),
             'month' => 'nullable|integer|between:1,12',
-            'year' => 'nullable|integer|min:1900|max:' . now()->year
+            'year' => 'nullable|integer|min:1900|max:' . now()->year,
         ];
     }
 }

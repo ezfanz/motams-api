@@ -9,6 +9,7 @@ use App\Http\Requests\Attendance\AttendanceStatusSummaryRequest;
 use App\Http\Requests\Attendance\ProcessAttendanceReviewRequest;
 use App\Http\Requests\Attendance\BatchProcessAttendanceReviewRequest;
 use App\Services\AttendanceReviewService;
+use App\Models\Status;
 use App\Helpers\ResponseHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Auth;
@@ -27,9 +28,14 @@ class AttendanceReviewController extends Controller
         $filters = $request->only(['status', 'month', 'year']);
         $filters['user_id'] = Auth::id();
         $filters['role_id'] = Auth::user()->role_id;
-
+    
+        // Convert status string to integer using Status model
+        if (!empty($filters['status'])) {
+            $filters['status'] = Status::where('diskripsi', $filters['status'])->value('id');
+        }
+    
         $attendanceRecords = $this->service->getAttendanceRecordsForReview($filters);
-
+    
         return response()->json([
             'status' => 'success',
             'message' => 'Pending Attendance review records retrieved successfully.',
