@@ -23,6 +23,7 @@ use GuzzleHttp\Client;
 use App\Models\Department;
 use App\Models\ActiveDepartment;
 use App\Helpers\TitleHelper;
+use App\Models\Transit;
 
 
 
@@ -151,44 +152,83 @@ class UserService
 
     public function getUserProfile($userId)
     {
-        $user = $this->userRepository->find($userId);
-
-        // Calculate remaining hours (baki tempoh keluar pejabat)
-        $remainingHours = $this->calculateRemainingHours($userId);
-
-        // Get attendance summary (late_in, early_out, absent)
-        $attendanceSummary = $this->getAttendanceSummary($userId);
-
-        // Get color change count
+        $user = User::where('is_deleted', '!=', 1)->find($userId);
+    
+        if (!$user) {
+            return response()->json(['error' => 'User not found'], 404);
+        }
+    
+        $idpeg = $user->id;
+        $idstaff = $user->staffid;
+        $nama = $user->fullname;
+        $jawatan = $user->jawatan;
+        $roleId = $user->role_id;
+        $logterakhir = $user->updated_at;
+    
+        // Calculate remaining hours
+        $remainingHours = OfficeLeaveRequest::where('idpeg', $idpeg)
+            ->whereDate('date_mula', now()->toDateString())
+            ->where('status', '16')
+            ->where('is_deleted', 0)
+            ->selectRaw('(4 - SUM(TIMESTAMPDIFF(MINUTE, start_time, end_time) / 60)) AS remaining_hours')
+            ->value('remaining_hours');
+    
+        if ($remainingHours !== null) {
+            $hours = floor($remainingHours);
+            $minutes = ($remainingHours - $hours) * 60;
+            $remainingHours = sprintf('%02d:%02d', $hours, $minutes);
+        } else {
+            $remainingHours = '04:00';
+        }
+    
+        // Get today's attendance log
+        $datenow = now()->format('Y-m-d');
+        $attendanceLog = Transit::select(
+            DB::raw('TIME_FORMAT(MIN(trdatetime), "%T") AS timein'),
+            DB::raw('TIME_FORMAT(MAX(trdatetime), "%T") AS timeout')
+        )
+            ->where('staffid', $idstaff)
+            ->where('trdate', $datenow)
+            ->first();
+    
+        $timein = $attendanceLog->timein ?? '--:--:--';
+        $timeout = $attendanceLog->timeout ?? '--:--:--';
+    
+        // Attendance summary
+        $attendanceSummary = $this->getAttendanceSummary($idstaff, $idpeg);
+    
+        // Color change count
         $countColorsAll = PenukaranWarna::leftJoin('warna', 'warna.id', '=', 'penukaranwarna.warna')
             ->where('penukaranwarna.is_deleted', '!=', 1)
-            ->where('penukaranwarna.idpeg', $userId)
+            ->where('penukaranwarna.idpeg', $idpeg)
             ->whereIn('penukaranwarna.status', [7, 8, 9, 10, 11, 12])
             ->count();
-
-        // Get the user's role
-        $role = $user->role_id ? Role::find($user->role_id)->diskripsi : 'No Role';
-
-        // Calculate tindakan_kelulusan_count
+    
+        // Total leave requests
         $tindakan_kelulusan_count = OfficeLeaveRequest::where('status', '15')
-            ->where('pelulus_id', $userId)
+            ->where('pelulus_id', $idpeg)
             ->count();
-
-        // Calculate bilsemakan and bilpengesahan
-        [$bilsemakan, $bilpengesahan] = $this->calculateBilCounts($userId, $role);
-
-        return [
-            'name' => $user->fullname,
-            'email' => $user->email,
-            'role' => $role,
-            'last_login' => $user->last_login_at,
-            'remaining_hours' => $remainingHours,
-            'attendance_summary' => $attendanceSummary,
-            'color_change_count' => $countColorsAll,
-            'total_leave_requests' => $tindakan_kelulusan_count,
-            'total_pending_reviews' => $bilsemakan,
-            'total_pending_approvals' => $bilpengesahan,
-        ];
+    
+        // Pending reviews and approvals
+        [$bilsemakan, $bilpengesahan] = $this->calculateBilCounts($userId, $roleId);
+    
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Profile retrieved successfully',
+            'data' => [
+                'name' => $nama,
+                'jawatan' => $jawatan,
+                'logterakhir' => $logterakhir,
+                'remaining_hours' => $remainingHours,
+                'timein' => $timein,
+                'timeout' => $timeout,
+                'attendance_summary' => $attendanceSummary,
+                'color_change_count' => $countColorsAll,
+                'total_leave_requests' => $tindakan_kelulusan_count,
+                'total_pending_reviews' => $bilsemakan,
+                'total_pending_approvals' => $bilpengesahan,
+            ]
+        ]);
     }
 
     private function calculateRemainingHours($userId)
@@ -210,68 +250,33 @@ class UserService
         return '04:00';
     }
 
-    public function getAttendanceSummary($userId)
+    public function getAttendanceSummary($idstaff, $idpeg)
     {
-        $startOfPreviousMonth = now()->subMonths(3)->startOfMonth();
-        $endDate = now();
-
         $calendarRecords = Calendar::select(
             'calendars.fulldate',
-            'calendars.year',
-            'calendars.monthname',
-            'calendars.dayname',
             'calendars.isweekday',
             'calendars.isholiday',
-            'calendars.holidaydesc',
-            'transit.staffid',
-            'transit.ramadhan_yt',
             DB::raw("MIN(transit.trdatetime) AS datetimein"),
-            DB::raw("DATE_FORMAT(MIN(transit.trdatetime), '%T') AS timein"),
             DB::raw("MAX(transit.trdatetime) AS datetimeout"),
-            DB::raw("DATE_FORMAT(MAX(transit.trdatetime), '%T') AS timeout"),
             DB::raw("
-            CASE
-                WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND TIME(MIN(transit.trdatetime)) >= '09:01:00' THEN 1
-                ELSE 0
-            END AS latein
-        "),
+                CASE WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND TIME(MIN(transit.trdatetime)) >= '09:01:00' THEN 1 ELSE 0 END AS latein
+            "),
             DB::raw("
-            CASE
-                WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND transit.ramadhan_yt = 0 AND TIME(MAX(transit.trdatetime)) <= '18:00:00'
-                    AND (HOUR(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime)))) > (HOUR(MAX(transit.trdatetime)) * 60 + MINUTE(MAX(transit.trdatetime)))
-                    THEN 1
-                WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND transit.ramadhan_yt = 0 AND (TIME(MIN(transit.trdatetime)) = TIME(MAX(transit.trdatetime)) OR TIME(MAX(transit.trdatetime)) <= '16:30:00') THEN 1
-                WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND transit.ramadhan_yt = 1 AND TIME(MAX(transit.trdatetime)) <= '18:00:00'
-                    AND (HOUR(TIMESTAMPADD(MINUTE, 510, MIN(transit.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 510, MIN(transit.trdatetime)))) > (HOUR(MAX(transit.trdatetime)) * 60 + MINUTE(MAX(transit.trdatetime)))
-                    THEN 1
-                WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND transit.ramadhan_yt = 1 AND (TIME(MIN(transit.trdatetime)) = TIME(MAX(transit.trdatetime)) OR TIME(MAX(transit.trdatetime)) <= '16:00:00') THEN 1
-                ELSE 0
-            END AS earlyout
-        ")
+                CASE WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND TIME(MAX(transit.trdatetime)) <= '16:30:00' THEN 1 ELSE 0 END AS earlyout
+            ")
         )
-            ->leftJoin('transit', function ($join) use ($userId) {
-                $join->on(DB::raw('calendars.fulldate'), '=', DB::raw('DATE(transit.trdate)'))
-                    ->where('transit.staffid', $userId);
+            ->leftJoin('transit', function ($join) use ($idstaff) {
+                $join->on('calendars.fulldate', '=', DB::raw('DATE(transit.trdate)'))
+                    ->where('transit.staffid', $idstaff);
             })
-            ->where('calendars.fulldate', '>=', $startOfPreviousMonth->format('Y-m-d'))
-            ->where('calendars.fulldate', '<=', $endDate)
-            ->groupBy(
-                'calendars.fulldate',
-                'calendars.year',
-                'calendars.monthname',
-                'calendars.dayname',
-                'calendars.isweekday',
-                'calendars.isholiday',
-                'calendars.holidaydesc',
-                'transit.staffid',
-                'transit.ramadhan_yt'
-            )
+            ->whereBetween('calendars.fulldate', [now()->subMonths(3)->startOfMonth(), now()])
+            ->groupBy('calendars.fulldate', 'calendars.isweekday', 'calendars.isholiday')
             ->get();
-
+    
         $absentCount = 0;
         $lateCount = 0;
         $earlyOutCount = 0;
-
+    
         foreach ($calendarRecords as $record) {
             if ($record->isweekday && !$record->isholiday) {
                 if (is_null($record->datetimein) && is_null($record->datetimeout)) {
@@ -285,7 +290,7 @@ class UserService
                 }
             }
         }
-
+    
         return [
             'lewat_tanpa_sebab' => $lateCount,
             'balik_awal_tanpa_sebab' => $earlyOutCount,
@@ -293,79 +298,31 @@ class UserService
         ];
     }
 
-    private function calculateBilCounts($userId, $role)
+    private function calculateBilCounts($userId, $roleId)
     {
-        $currentDay = Carbon::now()->format('d');
-        $currentMonth = Carbon::now()->format('Y-m');
-        $lastMonth = Carbon::now()->subMonth()->format('Y-m');
-
+        $daynow = now()->day;
+        $currentMonth = now()->month;
+        $lastMonth = now()->subMonth()->month;
+    
         $bilsemakan = 0;
         $bilpengesahan = 0;
-
-        // Define role categories for semakan and pengesahan
-        $semakanRoles = [5, 7, 8, 10, 11, 13, 15, 17]; // Penyemak roles
-        $pengesahanRoles = [6, 7, 9, 10, 12, 13, 16, 17]; // Pengesah roles
-
-        if ($role) {
-            if (in_array($role, [3, 2])) { // Admin or Pentadbir
-                if ($currentDay > 10) {
-                    $bilsemakan = TransAlasan::where('is_deleted', '!=', 1)
-                        ->where('status', 1)
-                        ->whereMonth('log_datetime', now()->month)
-                        ->count();
-
-                    $bilpengesahan = TransAlasan::where('is_deleted', '!=', 1)
-                        ->where('status', 2)
-                        ->whereMonth('log_datetime', now()->month)
-                        ->count();
-                } else {
-                    $bilsemakan = TransAlasan::where('is_deleted', '!=', 1)
-                        ->where('status', 1)
-                        ->where(function ($query) use ($currentMonth, $lastMonth) {
-                            $query->whereMonth('log_datetime', now()->month)
-                                ->orWhereMonth('log_datetime', now()->subMonth()->month);
-                        })
-                        ->count();
-
-                    $bilpengesahan = TransAlasan::where('is_deleted', '!=', 1)
-                        ->where('status', 2)
-                        ->where(function ($query) use ($currentMonth, $lastMonth) {
-                            $query->whereMonth('log_datetime', now()->month)
-                                ->orWhereMonth('log_datetime', now()->subMonth()->month);
-                        })
-                        ->count();
-                }
-            }
-
-            if (in_array($role, $semakanRoles)) { // Penyemak roles
-                $bilsemakan = TransAlasan::where('status', 1)
-                    ->where('is_deleted', '!=', 1)
-                    ->when($currentDay > 10, function ($query) {
-                        return $query->whereMonth('log_datetime', now()->month);
-                    }, function ($query) use ($currentMonth, $lastMonth) {
-                        return $query->where(function ($q) use ($currentMonth, $lastMonth) {
-                            $q->whereMonth('log_datetime', now()->month)
-                                ->orWhereMonth('log_datetime', now()->subMonth()->month);
-                        });
-                    })
-                    ->count();
-            }
-
-            if (in_array($role, $pengesahanRoles)) { // Pengesah roles
-                $bilpengesahan = TransAlasan::where('status', 2)
-                    ->where('is_deleted', '!=', 1)
-                    ->when($currentDay > 10, function ($query) {
-                        return $query->whereMonth('log_datetime', now()->month);
-                    }, function ($query) use ($currentMonth, $lastMonth) {
-                        return $query->where(function ($q) use ($currentMonth, $lastMonth) {
-                            $q->whereMonth('log_datetime', now()->month)
-                                ->orWhereMonth('log_datetime', now()->subMonth()->month);
-                        });
-                    })
-                    ->count();
-            }
+    
+        if (in_array($roleId, [2, 3])) {
+            $bilsemakan = TransAlasan::where('status', 1)
+                ->where('is_deleted', 0)
+                ->when($daynow <= 10, function ($query) use ($currentMonth, $lastMonth) {
+                    $query->whereIn('log_datetime', [$currentMonth, $lastMonth]);
+                })
+                ->count();
+    
+            $bilpengesahan = TransAlasan::where('status', 2)
+                ->where('is_deleted', 0)
+                ->when($daynow <= 10, function ($query) use ($currentMonth, $lastMonth) {
+                    $query->whereIn('log_datetime', [$currentMonth, $lastMonth]);
+                })
+                ->count();
         }
-
+    
         return [$bilsemakan, $bilpengesahan];
     }
 
