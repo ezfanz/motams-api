@@ -20,14 +20,14 @@ class AttendanceApprovalController extends Controller
     public function getApprovalList(Request $request)
     {
         $userId = Auth::id(); // Authenticated user ID
-    $roleId = Auth::user()->role_id; // User role ID
-    $monthSearch = $request->query('month'); // Optional month
-    $yearSearch = $request->query('year');   // Optional year
+        $roleId = Auth::user()->role_id; // User role ID
+        $monthSearch = $request->query('month'); // Optional month
+        $yearSearch = $request->query('year');   // Optional year
 
-    // Call the service to fetch the approval list
-    $approvalList = $this->service->getApprovalList($userId, $roleId, $monthSearch, $yearSearch);
+        // Call the service to fetch the approval list
+        $approvalList = $this->service->getApprovalList($userId, $roleId, $monthSearch, $yearSearch);
 
-    return ResponseHelper::success($approvalList, 'Pending Approval list retrieved successfully');
+        return ResponseHelper::success($approvalList, 'Pending Approval list retrieved successfully');
     }
 
 }

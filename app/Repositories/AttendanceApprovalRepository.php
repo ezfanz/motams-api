@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use Illuminate\Support\Facades\DB;
 use Carbon\Carbon;
+use App\Models\Status;
 
 class AttendanceApprovalRepository
 {
@@ -25,36 +26,46 @@ class AttendanceApprovalRepository
             ->leftJoin('users', 'trans_alasan.idpeg', '=', 'users.id')
             ->leftJoin('alasan', 'trans_alasan.alasan_id', '=', 'alasan.id')
             ->leftJoin('jenis_alasan', 'trans_alasan.jenisalasan_id', '=', 'jenis_alasan.id')
-            ->where('trans_alasan.is_deleted', '!=', 1)
-            ->where('trans_alasan.status', 2) // Pending Approval
-            ->orderBy('trans_alasan.log_datetime', 'DESC');
-
-        // Apply optional month and year filtering
+            ->where('trans_alasan.is_deleted', '!=', 1);
+    
+        // Role-based filtering
+        if ($roleId != 3) { // Non-admin roles
+            $query->where('users.pengesah_id', $userId);
+        }
+    
+        // Status filter (only fetch "Pending Approval")
+        $query->where('trans_alasan.status', Status::DITERIMA_PENYEMAK);
+    
+        // Month and year filtering
         if ($monthSearch && $yearSearch) {
             $firstDayOfMonth = Carbon::createFromDate($yearSearch, $monthSearch, 1)->startOfMonth()->toDateTimeString();
             $lastDayOfMonth = Carbon::createFromDate($yearSearch, $monthSearch, 1)->endOfMonth()->toDateTimeString();
             $query->whereBetween('trans_alasan.log_datetime', [$firstDayOfMonth, $lastDayOfMonth]);
+        } else {
+            // Default to current month if no filters provided
+            $firstDayOfCurrentMonth = now()->startOfMonth()->toDateTimeString();
+            $lastDayOfCurrentMonth = now()->endOfMonth()->toDateTimeString();
+            $query->whereBetween('trans_alasan.log_datetime', [$firstDayOfCurrentMonth, $lastDayOfCurrentMonth]);
         }
-
-        // Role-based filtering
-        if ($roleId != 3) { // For roles other than Admin
-            $query->where('users.pengesah_id', $userId);
-        }
-
+    
+        $query->orderBy('trans_alasan.log_datetime', 'DESC');
+    
+        // Map results for UI
         return $query->get()->map(function ($record) {
             $record->trdate = date('d/m/Y', strtotime($record->log_datetime));
             $record->masa = date('h:i:s A', strtotime($record->log_datetime));
             $record->hari = Carbon::parse($record->log_datetime)->isoFormat('dddd');
-
+    
             $displayData = [
                 'name' => $record->fullname,
                 'position' => $record->position,
                 'date' => $record->trdate,
                 'day' => $record->hari,
                 'reason' => $record->reason,
-                'status' => $record->status,
+                'statusText' => Status::getStatusName($record->status),
+                'boxColor' => Status::getStatusColor($record->status),
             ];
-
+    
             // Add type-specific fields
             if ($record->jenisalasan_id == 1) { // Jika Lewat
                 $displayData['time'] = $record->masa;
@@ -65,11 +76,7 @@ class AttendanceApprovalRepository
             } elseif ($record->jenisalasan_id == 3) { // Jika Tidak Hadir
                 $displayData['type'] = 'Tidak Hadir';
             }
-
-            // Add color and text for UI
-            $displayData['boxColor'] = $this->getStatusColor($record->status);
-            $displayData['statusText'] = $this->getStatusText($record->status);
-
+    
             return $displayData;
         })->toArray();
     }
