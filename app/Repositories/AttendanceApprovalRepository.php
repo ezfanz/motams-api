@@ -7,11 +7,8 @@ use Carbon\Carbon;
 
 class AttendanceApprovalRepository
 {
-    public function fetchApprovalList(int $userId, int $roleId, int $monthSearch, int $yearSearch)
+    public function fetchApprovalList(int $userId, int $roleId, ?int $monthSearch = null, ?int $yearSearch = null)
     {
-        $firstDayOfMonth = Carbon::createFromDate($yearSearch, $monthSearch, 1)->startOfMonth()->toDateTimeString();
-        $lastDayOfMonth = Carbon::createFromDate($yearSearch, $monthSearch, 1)->endOfMonth()->toDateTimeString();
-
         $query = DB::table('trans_alasan')
             ->select(
                 'trans_alasan.id',
@@ -30,14 +27,19 @@ class AttendanceApprovalRepository
             ->leftJoin('jenis_alasan', 'trans_alasan.jenisalasan_id', '=', 'jenis_alasan.id')
             ->where('trans_alasan.is_deleted', '!=', 1)
             ->where('trans_alasan.status', 2) // Pending Approval
-            ->whereBetween('trans_alasan.log_datetime', [$firstDayOfMonth, $lastDayOfMonth]);
+            ->orderBy('trans_alasan.log_datetime', 'DESC');
+
+        // Apply optional month and year filtering
+        if ($monthSearch && $yearSearch) {
+            $firstDayOfMonth = Carbon::createFromDate($yearSearch, $monthSearch, 1)->startOfMonth()->toDateTimeString();
+            $lastDayOfMonth = Carbon::createFromDate($yearSearch, $monthSearch, 1)->endOfMonth()->toDateTimeString();
+            $query->whereBetween('trans_alasan.log_datetime', [$firstDayOfMonth, $lastDayOfMonth]);
+        }
 
         // Role-based filtering
         if ($roleId != 3) { // For roles other than Admin
             $query->where('users.pengesah_id', $userId);
         }
-
-        $query->orderBy('trans_alasan.log_datetime', 'DESC');
 
         return $query->get()->map(function ($record) {
             $record->trdate = date('d/m/Y', strtotime($record->log_datetime));

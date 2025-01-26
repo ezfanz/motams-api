@@ -12,7 +12,7 @@ class AttendanceApprovalService
         $this->repository = $repository;
     }
 
-    public function getApprovalList(int $userId, int $roleId, string $monthSearch, int $yearSearch)
+    public function getApprovalList(int $userId, int $roleId, ?int $monthSearch = null, ?int $yearSearch = null)
     {
         return $this->repository->fetchApprovalList($userId, $roleId, $monthSearch, $yearSearch);
     }
