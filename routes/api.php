@@ -27,13 +27,13 @@ use App\Http\Controllers\Alasan\AlasanController;
 /**
  * Public Routes for Authentication
  */
-Route::prefix('v1/auth')->group(function () {
+Route::prefix('v1/auth')->middleware('throttle:auth')->group(function () {
     Route::post('/register', [AuthController::class, 'register'])->name('auth.register');
     Route::post('/login', [AuthController::class, 'login'])->name('auth.login');
 });
 
-Route::group(['prefix' => 'v1', 'middleware' => 'auth:api'], function () {
 
+Route::group(['prefix' => 'v1', 'middleware' => ['auth:api', 'throttle:global']], function () {
     /**
      * Authenticated Auth Routes
      */
