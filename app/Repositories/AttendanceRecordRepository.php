@@ -172,10 +172,31 @@ class AttendanceRecordRepository
 
         // Perform the query
         $results = DB::table('calendars')
-            ->leftJoin('transit', function ($join) use ($staffId) {
-                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
-                    ->where('transit.staffid', '=', (int) $staffId);
+        ->leftJoin('transit', function ($join) use ($staffId) {
+            $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
+            ->where('transit.staffid', '=', (int) $staffId);
+        })
+            ->leftJoin('trans_alasan AS late_alasan', function ($join) use ($userId) {
+                $join->on('late_alasan.log_datetime', '=', DB::raw('(SELECT MIN(trdatetime) FROM transit WHERE transit.staffid = late_alasan.idpeg)'))
+                ->where('late_alasan.idpeg', '=', (int) $userId)
+                    ->where('late_alasan.jenisalasan_id', '=', 1)
+                    ->where('late_alasan.is_deleted', '=', 0);
             })
+            ->leftJoin('trans_alasan AS early_alasan', function ($join) use ($userId) {
+                $join->on('early_alasan.log_datetime', '=', DB::raw('(SELECT MAX(trdatetime) FROM transit WHERE transit.staffid = early_alasan.idpeg)'))
+                ->where('early_alasan.idpeg', '=', (int) $userId)
+                    ->where('early_alasan.jenisalasan_id', '=', 2)
+                    ->where('early_alasan.is_deleted', '=', 0);
+            })
+            ->leftJoin('trans_alasan AS absent_alasan', function ($join) use ($userId) {
+                $join->on('absent_alasan.log_datetime', '=', 'calendars.fulldate')
+                ->where('absent_alasan.idpeg', '=', (int) $userId)
+                    ->where('absent_alasan.jenisalasan_id', '=', 3)
+                    ->where('absent_alasan.is_deleted', '=', 0);
+            })
+            ->leftJoin('alasan AS alasan_late', 'late_alasan.alasan_id', '=', 'alasan_late.id')
+            ->leftJoin('alasan AS alasan_early', 'early_alasan.alasan_id', '=', 'alasan_early.id')
+            ->leftJoin('alasan AS alasan_absent', 'absent_alasan.alasan_id', '=', 'alasan_absent.id')
             ->selectRaw('
             calendars.fulldate,
             calendars.year,
@@ -197,77 +218,21 @@ class AttendanceRecordRepository
                 WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND transit.ramadhan_yt = 0 AND TIME(MAX(transit.trdatetime)) <= "18:00:00"
                      AND (HOUR(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime)))) > (HOUR(MAX(transit.trdatetime)) * 60 + MINUTE(MAX(transit.trdatetime)))
                 THEN 1
-                WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND transit.ramadhan_yt = 0 AND (TIME(MIN(transit.trdatetime)) = TIME(MAX(transit.trdatetime)) OR TIME(MAX(transit.trdatetime)) <= "16:30:00") THEN 1
-                WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND transit.ramadhan_yt = 1 AND TIME(MAX(transit.trdatetime)) <= "18:00:00"
-                     AND (HOUR(TIMESTAMPADD(MINUTE, 510, MIN(transit.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 510, MIN(transit.trdatetime)))) > (HOUR(MAX(transit.trdatetime)) * 60 + MINUTE(MAX(transit.trdatetime)))
-                THEN 1
-                WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND transit.ramadhan_yt = 1 AND (TIME(MIN(transit.trdatetime)) = TIME(MAX(transit.trdatetime)) OR TIME(MAX(transit.trdatetime)) <= "16:00:00") THEN 1
                 ELSE 0
             END AS earlyout,
-            (
-                SELECT alasan.diskripsi
-                FROM trans_alasan
-                LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
-                WHERE trans_alasan.log_datetime = MIN(transit.trdatetime)
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 1
-                AND trans_alasan.is_deleted = 0
-            ) AS latereason,
-            (
-                SELECT alasan.diskripsi
-                FROM trans_alasan
-                LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
-                WHERE trans_alasan.log_datetime = MAX(transit.trdatetime)
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 2
-                AND trans_alasan.is_deleted = 0
-            ) AS earlyreason,
-            (
-                SELECT alasan.diskripsi
-                FROM trans_alasan
-                LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
-                WHERE trans_alasan.log_datetime = calendars.fulldate
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 3
-                AND trans_alasan.is_deleted = 0
-            ) AS absentreasont,
-            (
-                SELECT trans_alasan.status
-                FROM trans_alasan
-                WHERE trans_alasan.log_datetime = MIN(transit.trdatetime)
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 1
-                AND trans_alasan.is_deleted = 0
-            ) AS statuslate,
-            (
-                SELECT trans_alasan.status
-                FROM trans_alasan
-                WHERE trans_alasan.log_datetime = MAX(transit.trdatetime)
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 2
-                AND trans_alasan.is_deleted = 0
-            ) AS statusearly,
-            (
-                SELECT trans_alasan.status
-                FROM trans_alasan
-                WHERE trans_alasan.log_datetime = calendars.fulldate
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 3
-                AND trans_alasan.is_deleted = 0
-            ) AS statusabsent
+            alasan_late.diskripsi AS latereason,
+            alasan_early.diskripsi AS earlyreason,
+            alasan_absent.diskripsi AS absentreasont,
+            late_alasan.status AS statuslate,
+            early_alasan.status AS statusearly,
+            absent_alasan.status AS statusabsent
         ', [
-                $userId, // idpeg
-                $userId,
-                $userId,
-                $userId, // For reasons
-                $userId,
-                $userId,
-                $userId, // For statuses
+                $userId
             ])
             ->whereBetween('calendars.fulldate', [$startDay, $lastDay])
             ->where('calendars.isweekday', 1)
             ->where('calendars.isholiday', 0)
-            ->whereNotNull('transit.trdatetime') // Ensure there is data in transit
+            ->whereNotNull('transit.trdatetime')
             ->groupBy(
                 'calendars.fulldate',
                 'calendars.year',
@@ -276,18 +241,24 @@ class AttendanceRecordRepository
                 'calendars.isweekday',
                 'calendars.isholiday',
                 'transit.staffid',
-                'transit.ramadhan_yt'
+                'transit.ramadhan_yt',
+                'alasan_late.diskripsi',
+                'alasan_early.diskripsi',
+                'alasan_absent.diskripsi',
+                'late_alasan.status',
+                'early_alasan.status',
+                'absent_alasan.status'
             )
             ->orderBy('calendars.fulldate', 'ASC')
             ->get();
 
-        // Map results for display
         return $results->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->fulldate));
             $record->box_color = $this->determineBoxColor($record->statusabsent ?? $record->statuslate ?? $record->statusearly);
             return $record;
         })->toArray();
     }
+
     public function fetchLateAttendanceRecords(int $userId, string $startDay, string $lastDay): array
     {
         // Fetch the staff ID for the given user
@@ -511,10 +482,12 @@ class AttendanceRecordRepository
         return $dayNow > 10
             ? TransAlasan::where('is_deleted', '!=', 1) // Soft delete condition
                 ->where('status', 1)
+                ->whereYear('log_datetime', now()->year)
                 ->whereMonth('log_datetime', now()->month)
                 ->count()
             : TransAlasan::where('is_deleted', '!=', 1) // Soft delete condition
                 ->where('status', 1)
+                ->whereYear('log_datetime', now()->year)
                 ->where(function ($query) use ($currentMonth, $lastMonth) {
                     $query->whereMonth('log_datetime', now()->month)
                         ->orWhere(function ($query) use ($lastMonth) {
@@ -539,12 +512,14 @@ class AttendanceRecordRepository
                 ->where('trans_alasan.status', 1)
                 ->where('users.reviewing_officer_id', $userId)
                 ->where('trans_alasan.is_deleted', '!=', 1)
+                ->whereYear('trans_alasan.log_datetime', now()->year)
                 ->whereMonth('trans_alasan.log_datetime', now()->month)
                 ->count()
             : TransAlasan::leftJoin('users', 'trans_alasan.idpeg', '=', 'users.id')
                 ->where('trans_alasan.status', 1)
                 ->where('users.reviewing_officer_id', $userId)
                 ->where('trans_alasan.is_deleted', '!=', 1)
+                ->whereYear('trans_alasan.log_datetime', now()->year)
                 ->where(function ($query) use ($currentMonth, $lastMonth) {
                     $query->whereMonth('trans_alasan.log_datetime', now()->month)
                         ->orWhere(function ($query) use ($lastMonth) {
@@ -567,10 +542,12 @@ class AttendanceRecordRepository
         return $dayNow > 10
             ? TransAlasan::where('is_deleted', '!=', 1) // Soft delete condition
                 ->where('status', 2)
+                ->whereYear('log_datetime', now()->year)
                 ->whereMonth('log_datetime', now()->month)
                 ->count()
             : TransAlasan::where('is_deleted', '!=', 1) // Soft delete condition
                 ->where('status', 2)
+                ->whereYear('log_datetime', now()->year)
                 ->where(function ($query) use ($currentMonth, $lastMonth) {
                     $query->whereMonth('log_datetime', now()->month)
                         ->orWhere(function ($query) use ($lastMonth) {
@@ -596,12 +573,14 @@ class AttendanceRecordRepository
                 ->where('trans_alasan.status', 2)
                 ->where('users.pengesah_id', $userId) // Assumes `pengesah_id` refers to approver ID
                 ->where('trans_alasan.is_deleted', '!=', 1)
+                ->whereYear('trans_alasan.log_datetime', now()->year)
                 ->whereMonth('trans_alasan.log_datetime', now()->month)
                 ->count()
             : TransAlasan::leftJoin('users', 'trans_alasan.idpeg', '=', 'users.id')
                 ->where('trans_alasan.status', 2)
                 ->where('users.pengesah_id', $userId)
                 ->where('trans_alasan.is_deleted', '!=', 1)
+                ->whereYear('trans_alasan.log_datetime', now()->year)
                 ->where(function ($query) use ($currentMonth, $lastMonth) {
                     $query->whereMonth('trans_alasan.log_datetime', now()->month)
                         ->orWhere(function ($query) use ($lastMonth) {
