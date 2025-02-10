@@ -85,10 +85,10 @@ class OfficeLeaveRequestRepository
     public function getByMonth(int $month, int $year): Collection
     {
         return OfficeLeaveRequest::with('leaveType', 'creator')
-            ->whereYear('date', $year)
-            ->whereMonth('date', $month)
+            ->whereYear('date_mula', $year) // ✅ Changed `date` to `date_mula`
+            ->whereMonth('date_mula', $month) // ✅ Changed `date` to `date_mula`
             ->get();
     }
-
+    
 
 }

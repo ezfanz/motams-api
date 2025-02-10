@@ -160,7 +160,12 @@ class AttendanceReviewService
             $record->tkh_pengesah_sah = $currentTimestamp;
             $record->status = $alasanStatus;
             $record->pengguna = $userId;
-            $record->save();
+        
+            if ($record->save()) {
+                Log::info("Record {$record->id} updated successfully.");
+            } else {
+                Log::error("Failed to update record {$record->id}.");
+            }
         }
 
         // Determine message based on status

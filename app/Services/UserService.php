@@ -252,6 +252,10 @@ class UserService
 
     public function getAttendanceSummary($idstaff, $idpeg)
     {
+
+        $startDate = now()->startOfYear()->toDateString();
+        $endDate = now()->endOfYear()->toDateString();
+
         $calendarRecords = Calendar::select(
             'calendars.fulldate',
             'calendars.isweekday',
@@ -268,28 +272,29 @@ class UserService
         "),
             DB::raw("trans_alasan.catatan_peg AS absentreasont") // ✅ Fix: Use correct column name
         )
-        ->leftJoin('transit', function ($join) use ($idstaff) {
-            $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
-            ->where('transit.staffid', $idstaff);
-        })
-        ->leftJoin('trans_alasan', function ($join) use ($idpeg) {
-            $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(trans_alasan.log_datetime)'))
-            ->where('trans_alasan.idpeg', $idpeg)
-                ->where('trans_alasan.jenisalasan_id', 3) // Absence reason
-                ->where('trans_alasan.is_deleted', '!=', 1);
-        })
-        ->whereBetween('calendars.fulldate', [now()->subMonths(3)->startOfMonth(), now()])
-        ->groupBy(
-            'calendars.fulldate',
-            'calendars.isweekday',
-            'calendars.isholiday',
-            'trans_alasan.catatan_peg' // ✅ Fix: Group by correct column
-        )
-        ->get();
+            ->leftJoin('transit', function ($join) use ($idstaff) {
+                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
+                    ->where('transit.staffid', $idstaff);
+            })
+            ->leftJoin('trans_alasan', function ($join) use ($idpeg) {
+                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(trans_alasan.log_datetime)'))
+                    ->where('trans_alasan.idpeg', $idpeg)
+                    ->where('trans_alasan.jenisalasan_id', 3) // Absence reason
+                    ->where('trans_alasan.is_deleted', '!=', 1);
+            })
+            ->whereBetween('calendars.fulldate', [$startDate, $endDate])
+            ->groupBy(
+                'calendars.fulldate',
+                'calendars.isweekday',
+                'calendars.isholiday',
+                'trans_alasan.catatan_peg' // ✅ Fix: Group by correct column
+            )
+            ->get();
 
         $absentCount = 0;
         $lateCount = 0;
         $earlyOutCount = 0;
+
 
         foreach ($calendarRecords as $record) {
             if ($record->isweekday && !$record->isholiday) {
@@ -302,7 +307,7 @@ class UserService
                 ]);
 
                 // Fixing the absence condition to match /attendance-records/list?type=absent
-                if (is_null($record->datetimein) && is_null($record->datetimeout) && empty($record->absentreasont)) { {
+                if (is_null($record->datetimein) && is_null($record->datetimeout) && ($record->absentreasont === null || $record->absentreasont === '')) { {
                         $absentCount++;
                     }
                     if ($record->latein == 1) {
@@ -311,16 +316,20 @@ class UserService
                     if ($record->earlyout == 1) {
                         $earlyOutCount++;
                     }
+                }
             }
-        }
 
-        return [
-            'lewat_tanpa_sebab' => $lateCount,
-            'balik_awal_tanpa_sebab' => $earlyOutCount,
-            'tidak_hadir_tanpa_sebab' => $absentCount,
-        ];
+            // 🔹 Fetch absent records count from `fetchAbsentRecordsCount()`
+            $absentRecords = $this->fetchAbsentRecordsCount($idpeg, $startDate, $endDate);
+            $absentCount = $absentRecords['total_absent_count'];
+
+            return [
+                'lewat_tanpa_sebab' => $lateCount,
+                'balik_awal_tanpa_sebab' => $earlyOutCount,
+                'tidak_hadir_tanpa_sebab' => $absentCount,
+            ];
+        }
     }
-}
 
     private function calculateBilCounts($userId, $roleId)
     {
@@ -496,4 +505,53 @@ class UserService
             ]);
         }
     }
+
+    private function fetchAbsentRecordsCount(int $userId, string $startDay, string $lastDay): array
+    {
+        // Subquery to get absence reasons
+        $reasonSubquery = DB::table('trans_alasan')
+            ->join('alasan', 'trans_alasan.alasan_id', '=', 'alasan.id')
+            ->select(
+                'trans_alasan.log_datetime',
+                'alasan.diskripsi AS absentreasont',
+                'trans_alasan.status AS statusabsent'
+            )
+            ->where('trans_alasan.idpeg', '=', $userId)
+            ->where('trans_alasan.jenisalasan_id', '=', 3) // Absence reason
+            ->where('trans_alasan.is_deleted', '!=', 1);
+    
+        // Main query for counting absent records
+        $absentCount = DB::table('calendars')
+            ->leftJoin('transit', function ($join) use ($userId) {
+                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
+                    ->where('transit.staffid', '=', $userId)
+                    ->whereNull('transit.trdatetime'); // Null trdatetime indicates absence
+            })
+            ->leftJoinSub($reasonSubquery, 'reasons_sub', function ($join) {
+                $join->on('calendars.fulldate', '=', 'reasons_sub.log_datetime');
+            })
+            ->whereBetween('calendars.fulldate', [$startDay, $lastDay])
+            ->where('calendars.isweekday', 1)
+            ->where('calendars.isholiday', 0)
+            ->where(function ($query) {
+                $query->whereNotNull('transit.trdatetime') // Transit data exists
+                    ->orWhereNotNull('reasons_sub.absentreasont'); // Absence reason exists
+            })
+            ->groupBy(
+                'calendars.fulldate',
+                'calendars.isweekday',
+                'calendars.isholiday',
+                'transit.staffid',
+                'reasons_sub.absentreasont',
+                'reasons_sub.statusabsent'
+            )
+            ->count(); // ✅ This will return only the count of absent records
+    
+        return [
+            'total_absent_count' => $absentCount // ✅ Returning only the count in an array
+        ];
+    }
+    
+
+
 }
