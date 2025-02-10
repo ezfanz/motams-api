@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\OfficeLeaveRequest;
 use Carbon\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
 
 class OfficeLeaveStatusRepository
@@ -36,7 +37,7 @@ class OfficeLeaveStatusRepository
             ->leftJoin('leave_types as lt', 'olr.leave_type_id', '=', 'lt.id')
             ->select(
                 'olr.id',
-                'u.fullname as nama_pegawai', // Ensure the alias is correct
+                'u.fullname as nama_pegawai',
                 'u.jawatan',
                 'lt.diskripsi as jenis_leave',
                 DB::raw("DATE_FORMAT(olr.date_mula, '%d/%m/%Y') as tarikh_mula"),
@@ -61,20 +62,39 @@ class OfficeLeaveStatusRepository
                     WHEN olr.status = 17 THEN 'Tidak Diluluskan'
                     ELSE 'N/A'
                 END as disk_status")
-            )
-            ->where('olr.idpeg', $userId)
-            ->where('olr.is_deleted', '!=', 1);
+            );
     
-        // Apply filters for date range
-        if (!empty($filters['month_start']) && !empty($filters['month_end'])) {
-            $query->whereBetween('olr.date_mula', [
-                Carbon::parse("{$filters['month_start']}-01"),
-                Carbon::parse("{$filters['month_end']}-01")->endOfMonth(),
-            ]);
+        // Debug Log
+        Log::info("Filters Applied", [
+            'userId' => $userId,
+            'month_start' => $filters['month_start'] ?? null,
+            'month_end' => $filters['month_end'] ?? null,
+        ]);
+    
+        // Remove idpeg filter temporarily
+        if (!empty($userId)) {
+            $query->where('olr.idpeg', $userId);
         }
+    
+        // Debug Date Filter
+        if (!empty($filters['month_start']) && !empty($filters['month_end'])) {
+            $startDate = Carbon::parse("{$filters['month_start']}-01")->startOfMonth();
+            $endDate = Carbon::parse("{$filters['month_end']}-01")->endOfMonth();
+    
+            Log::info("Date Range Applied", [
+                'start_date' => $startDate,
+                'end_date' => $endDate,
+            ]);
+    
+            $query->whereBetween('olr.date_mula', [$startDate, $endDate]);
+        }
+    
+        // Debug Query Execution
+        Log::info("Executing Query: " . $query->toSql(), $query->getBindings());
     
         return $query->orderBy('olr.date_mula', 'desc')->get()->map(function ($leave) {
             return [
+                'id' => $leave->id,
                 'nama_pegawai' => $leave->nama_pegawai, 
                 'jawatan' => $leave->jawatan,
                 'jenis_leave' => $leave->jenis_leave,
@@ -90,6 +110,7 @@ class OfficeLeaveStatusRepository
             ];
         })->toArray();
     }
+    
 
 
     /**

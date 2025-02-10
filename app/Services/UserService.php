@@ -259,44 +259,68 @@ class UserService
             DB::raw("MIN(transit.trdatetime) AS datetimein"),
             DB::raw("MAX(transit.trdatetime) AS datetimeout"),
             DB::raw("
-                CASE WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND TIME(MIN(transit.trdatetime)) >= '09:01:00' THEN 1 ELSE 0 END AS latein
-            "),
+            CASE WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 
+            AND TIME(MIN(transit.trdatetime)) >= '09:01:00' THEN 1 ELSE 0 END AS latein
+        "),
             DB::raw("
-                CASE WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND TIME(MAX(transit.trdatetime)) <= '16:30:00' THEN 1 ELSE 0 END AS earlyout
-            ")
+            CASE WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 
+            AND TIME(MAX(transit.trdatetime)) <= '16:30:00' THEN 1 ELSE 0 END AS earlyout
+        "),
+            DB::raw("trans_alasan.catatan_peg AS absentreasont") // ✅ Fix: Use correct column name
         )
-            ->leftJoin('transit', function ($join) use ($idstaff) {
-                $join->on('calendars.fulldate', '=', DB::raw('DATE(transit.trdate)'))
-                    ->where('transit.staffid', $idstaff);
-            })
-            ->whereBetween('calendars.fulldate', [now()->subMonths(3)->startOfMonth(), now()])
-            ->groupBy('calendars.fulldate', 'calendars.isweekday', 'calendars.isholiday')
-            ->get();
-    
+        ->leftJoin('transit', function ($join) use ($idstaff) {
+            $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
+            ->where('transit.staffid', $idstaff);
+        })
+        ->leftJoin('trans_alasan', function ($join) use ($idpeg) {
+            $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(trans_alasan.log_datetime)'))
+            ->where('trans_alasan.idpeg', $idpeg)
+                ->where('trans_alasan.jenisalasan_id', 3) // Absence reason
+                ->where('trans_alasan.is_deleted', '!=', 1);
+        })
+        ->whereBetween('calendars.fulldate', [now()->subMonths(3)->startOfMonth(), now()])
+        ->groupBy(
+            'calendars.fulldate',
+            'calendars.isweekday',
+            'calendars.isholiday',
+            'trans_alasan.catatan_peg' // ✅ Fix: Group by correct column
+        )
+        ->get();
+
         $absentCount = 0;
         $lateCount = 0;
         $earlyOutCount = 0;
-    
+
         foreach ($calendarRecords as $record) {
             if ($record->isweekday && !$record->isholiday) {
-                if (is_null($record->datetimein) && is_null($record->datetimeout)) {
-                    $absentCount++;
-                }
-                if ($record->latein == 1) {
-                    $lateCount++;
-                }
-                if ($record->earlyout == 1) {
-                    $earlyOutCount++;
-                }
+                // Debug each record to see how absences are being counted
+                Log::info("Checking attendance record", [
+                    'date' => $record->fulldate,
+                    'datetimein' => $record->datetimein,
+                    'datetimeout' => $record->datetimeout,
+                    'absentreasont' => $record->absentreasont ?? 'NONE'
+                ]);
+
+                // Fixing the absence condition to match /attendance-records/list?type=absent
+                if (is_null($record->datetimein) && is_null($record->datetimeout) && empty($record->absentreasont)) { {
+                        $absentCount++;
+                    }
+                    if ($record->latein == 1) {
+                        $lateCount++;
+                    }
+                    if ($record->earlyout == 1) {
+                        $earlyOutCount++;
+                    }
             }
         }
-    
+
         return [
             'lewat_tanpa_sebab' => $lateCount,
             'balik_awal_tanpa_sebab' => $earlyOutCount,
             'tidak_hadir_tanpa_sebab' => $absentCount,
         ];
     }
+}
 
     private function calculateBilCounts($userId, $roleId)
     {
