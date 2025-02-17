@@ -24,6 +24,7 @@ use App\Models\Department;
 use App\Models\ActiveDepartment;
 use App\Helpers\TitleHelper;
 use App\Models\Transit;
+use App\Models\Status;
 
 
 
@@ -333,29 +334,27 @@ class UserService
 
     private function calculateBilCounts($userId, $roleId)
     {
-        $daynow = now()->day;
-        $currentMonth = now()->month;
-        $lastMonth = now()->subMonth()->month;
-    
-        $bilsemakan = 0;
-        $bilpengesahan = 0;
-    
-        if (in_array($roleId, [2, 3])) {
-            $bilsemakan = TransAlasan::where('status', 1)
-                ->where('is_deleted', 0)
-                ->when($daynow <= 10, function ($query) use ($currentMonth, $lastMonth) {
-                    $query->whereIn('log_datetime', [$currentMonth, $lastMonth]);
-                })
-                ->count();
-    
-            $bilpengesahan = TransAlasan::where('status', 2)
-                ->where('is_deleted', 0)
-                ->when($daynow <= 10, function ($query) use ($currentMonth, $lastMonth) {
-                    $query->whereIn('log_datetime', [$currentMonth, $lastMonth]);
-                })
-                ->count();
-        }
-    
+        $currentMonthStart = now()->startOfMonth()->toDateTimeString();
+        $currentMonthEnd = now()->endOfMonth()->toDateTimeString();
+
+        // Ensure status constants are correctly referenced
+        $pendingReviewStatus = Status::MENUNGGU_SEMAKAN;
+        $pendingApprovalStatus = Status::DITERIMA_PENYEMAK;
+
+        // Count for pending approvals (status = DITERIMA_PENYEMAK)
+        $bilpengesahan = TransAlasan::where('status', $pendingApprovalStatus)
+            ->where('is_deleted', 0)
+            ->where('pengesah_id', $userId) // Ensure only approvals for this user
+            ->whereBetween('log_datetime', [$currentMonthStart, $currentMonthEnd])
+            ->count();
+
+        // Count for pending reviews (status = MENUNGGU_SEMAKAN)
+        $bilsemakan = TransAlasan::where('status', $pendingReviewStatus)
+            ->where('is_deleted', 0)
+            ->where('penyemak_id', $userId) // Ensure only reviews for this user
+            ->whereBetween('log_datetime', [$currentMonthStart, $currentMonthEnd])
+            ->count();
+
         return [$bilsemakan, $bilpengesahan];
     }
 
