@@ -401,12 +401,14 @@ class AttendanceRecordRepository
 
     public function fetchEarlyLeaveRecords(int $userId, string $startDay, string $lastDay): array
     {
-        // Fetch staff ID from the user
         $staffId = User::where('is_deleted', '!=', 1)
             ->where('id', $userId)
             ->value('staffid');
-
-        // Query the `lateinoutview` to fetch early leave records
+    
+        if (!$staffId) {
+            return []; // Ensure an empty array if staffId is not found
+        }
+    
         $query = DB::table('lateinoutview')
             ->select(
                 'lateinoutview.staffid',
@@ -442,31 +444,36 @@ class AttendanceRecordRepository
             ->where('lateinoutview.isweekday', 1)
             ->where('lateinoutview.isholiday', 0)
             ->orderBy('lateinoutview.trdate', 'ASC');
-
-        // Fetch records
+    
         $records = $query->get();
-
-        // Map and format records
+    
+        if ($records->isEmpty()) {
+            return []; // Ensure an empty array is returned instead of null
+        }
+    
         return $records->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->trdate));
             $record->box_color = $this->determineBoxColor($record->statusearly);
-            return $record;
+            return (array) $record; // Ensure each record is cast to an array
         })->toArray();
     }
+    
 
 
-    private function determineBoxColor($status)
+    private function determineBoxColor($status = null)
     {
-        if ($status == 4) {
-            return '#28a745'; // Green
-        } elseif ($status == 2) {
-            return '#17a2b8'; // Blue
-        } elseif (in_array($status, [1, 3, 5])) {
-            return '#ffc107'; // Yellow
-        } else {
-            return '#dc3545'; // Red
+        if (is_null($status)) {
+            return '#dc3545'; // Default red if status is missing
         }
+    
+        return match ($status) {
+            4 => '#28a745', // Green
+            2 => '#17a2b8', // Blue
+            1, 3, 5 => '#ffc107', // Yellow
+            default => '#dc3545', // Red
+        };
     }
+    
 
 
     /**

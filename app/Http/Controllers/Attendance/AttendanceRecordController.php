@@ -72,11 +72,11 @@ class AttendanceRecordController extends Controller
     {
         $userId = Auth::id();
         $type = $request->input('type'); // 'late', 'early', or 'absent'
-
+    
         try {
             // Get attendance records based on the type
             $records = $this->attendanceRecordService->getAttendanceRecords($userId, $type);
-
+    
             // Determine the success message based on the type
             $message = match ($type) {
                 'late' => 'Datang Lewat records retrieved successfully',
@@ -84,16 +84,15 @@ class AttendanceRecordController extends Controller
                 'absent' => 'Tidak Hadir records retrieved successfully',
                 default => throw new \InvalidArgumentException('Invalid type specified.')
             };
-
+    
             return ResponseHelper::success($records, $message);
         } catch (\InvalidArgumentException $e) {
-            // Handle invalid type error
-            return ResponseHelper::error($e->getMessage());
+            return ResponseHelper::error($e->getMessage(), 400);
         } catch (\Exception $e) {
-            // Handle any other unexpected errors
-            return ResponseHelper::error('Failed to retrieve attendance records.', $e->getCode());
+            return ResponseHelper::error('Failed to retrieve attendance records.', $e->getCode() ?: 500);
         }
     }
+    
 
 
     public function getAttendanceLogs($idpeg)

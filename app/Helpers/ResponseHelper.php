@@ -30,11 +30,14 @@ class ResponseHelper
      */
     public static function error($message = 'Operation failed', $statusCode = 400)
     {
+        // Ensure the status code is always an integer and valid HTTP status code
+        $statusCode = is_numeric($statusCode) && $statusCode > 0 ? (int) $statusCode : 400;
+    
         return response()->json([
             'status' => 'error',
             'message' => $message,
             'data' => null
         ], $statusCode);
     }
-
+    
 }
