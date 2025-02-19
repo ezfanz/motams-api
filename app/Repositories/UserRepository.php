@@ -5,6 +5,7 @@ namespace App\Repositories;
 use App\Models\User;
 use Spatie\Permission\Models\Role;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class UserRepository
 {
@@ -55,7 +56,7 @@ class UserRepository
         return Role::find($roleId);
     }
 
-      /**
+    /**
      * Fetch user profile data from the database.
      *
      * @param int $userId
@@ -63,23 +64,48 @@ class UserRepository
      */
     public function getUserProfile(int $userId): ?array
     {
-        $result = DB::table('users')
-            ->leftJoin('department', 'users.department_id', '=', 'department.id')
-            ->leftJoin('roles', 'users.role_id', '=', 'roles.id')
-            ->leftJoin('users AS penyemak', 'users.penyemak_id', '=', 'penyemak.id')
-            ->leftJoin('users AS pengesah', 'users.pengesah_id', '=', 'pengesah.id')
-            ->select(
-                'users.fullname',
-                'users.jawatan',
-                'department.diskripsi AS department',
-                'roles.diskripsi AS role',
-                'penyemak.fullname AS nama_penyemak',
-                'pengesah.fullname AS nama_pengesah'
-            )
-            ->where('users.id', $userId)
-            ->where('users.is_deleted', '!=', 1) // Ensuring soft delete handling
+        $user = User::with(['department', 'roles'])
+            ->where('id', $userId)
             ->first();
-
-        return $result ? (array) $result : null; // Cast to array and return
+    
+        if (!$user) {
+            return null;
+        }
+    
+        // Debug: Log penyemak_id and pengesah_id to confirm they exist
+        Log::info("User Profile Debug", [
+            'userId' => $userId,
+            'penyemak_id' => $user->penyemak_id,
+            'pengesah_id' => $user->pengesah_id
+        ]);
+    
+        return [
+            'fullname' => $user->fullname,
+            'jawatan' => $user->jawatan,
+            'department' => $user->department->diskripsi ?? 'N/A',
+            'role' => $user->roles->diskripsi ?? 'N/A',
+            'nama_penyemak' => $this->getUserFullNameById($user->penyemak_id) ?? 'No Penyemak',
+            'nama_pengesah' => $this->getUserFullNameById($user->pengesah_id) ?? 'No Pengesah',
+        ];
     }
+    
+    public function getUserFullNameById(?int $userId): ?string
+    {
+        if (!$userId) {
+            return null;
+        }
+    
+        $user = User::withoutGlobalScope('is_deleted')
+            ->where('id', $userId)
+            ->value('fullname');
+    
+        Log::info("Fetching User Full Name", [
+            'userId' => $userId,
+            'fullname' => $user ?? 'NULL'
+        ]);
+    
+        return $user ?? null;
+    }
+
+
 }

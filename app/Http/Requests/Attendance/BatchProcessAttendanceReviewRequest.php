@@ -3,6 +3,7 @@
 namespace App\Http\Requests\Attendance;
 
 use Illuminate\Foundation\Http\FormRequest;
+use App\Models\Status;
 
 class BatchProcessAttendanceReviewRequest extends FormRequest
 {
@@ -24,8 +25,14 @@ class BatchProcessAttendanceReviewRequest extends FormRequest
         return [
             'tralasan_ids' => 'required|array|min:1',
             'tralasan_ids.*' => 'integer|exists:trans_alasan,id',
-            'status' => 'required|integer|in:2,3,6',
-            'notes' => 'nullable|string|max:255',
+            'status' => 'nullable|integer|in:' . implode(',', [
+                Status::MENUNGGU_SEMAKAN,
+                Status::DITERIMA_PENYEMAK,
+                Status::TIDAK_DITERIMA_PENYEMAK,
+                Status::DITERIMA_PENGESAH,
+                Status::TIDAK_DITERIMA_PENGESAH,
+            ]),
+            'catatanpengesah' => 'nullable|string|max:255',
         ];
     }
 }

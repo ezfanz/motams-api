@@ -43,15 +43,18 @@ class AttendanceActionRepository
     public function updateRecord(array $data, int $jenisAlasanId)
     {
         $trans = TransAlasan::find($data['transid']);
-
-        if ($trans) {
-            $trans->update([
-                'alasan_id' => $data['statalasan'],
-                'catatan_peg' => $data['catatanpeg'],
-                'status' => 1, // Pending Adjustment
-                'id_pencipta' => auth()->id(),
-                'tkh_peg_alasan' => Carbon::now(),
-            ]);
+    
+        if (!$trans) {
+            throw new \Exception('Transaction ID not found.');
         }
+    
+        $trans->update([
+            'alasan_id' => $data['statalasan'],
+            'catatan_peg' => $data['catatanpeg'],
+            'status' => 1, // Pending Adjustment
+            'id_pencipta' => auth()->id(),
+            'tkh_peg_alasan' => Carbon::now(),
+        ]);
     }
+    
 }
