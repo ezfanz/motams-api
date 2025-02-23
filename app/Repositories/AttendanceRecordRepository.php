@@ -298,21 +298,29 @@ class AttendanceRecordRepository
                         FROM trans_alasan AS ta
                         LEFT JOIN alasan AS a ON ta.alasan_id = a.id
                         WHERE ta.log_datetime = (
-                            SELECT MIN(t2.trdatetime) FROM transit AS t2 WHERE t2.staffid = t.staffid
+                            SELECT MIN(t2.trdatetime) 
+                            FROM transit AS t2 
+                            WHERE t2.staffid = t.staffid
                         )
                         AND ta.idpeg = $userId
                         AND ta.jenisalasan_id = 1
                         AND ta.is_deleted = 0
+                        LIMIT 1
                     ) AS latereason
                 "),
                 DB::raw("
                     (
                         SELECT ta.status
                         FROM trans_alasan AS ta
-                        WHERE ta.log_datetime = MIN(t.trdatetime)
-                            AND ta.idpeg = $userId
-                            AND ta.jenisalasan_id = 1
-                            AND ta.is_deleted = 0
+                        WHERE ta.log_datetime = (
+                            SELECT MIN(t2.trdatetime) 
+                            FROM transit AS t2 
+                            WHERE t2.staffid = t.staffid
+                        )
+                        AND ta.idpeg = $userId
+                        AND ta.jenisalasan_id = 1
+                        AND ta.is_deleted = 0
+                        LIMIT 1
                     ) AS statuslate
                 ")
             )
@@ -340,6 +348,7 @@ class AttendanceRecordRepository
             return (array) $record;
         })->toArray();
     }
+
 
 
     public function fetchAbsentRecords(int $userId, string $startDay, string $lastDay): array
@@ -435,34 +444,42 @@ class AttendanceRecordRepository
                 DB::raw('MAX(t.trdatetime) AS datetimeout'),
                 DB::raw("DATE_FORMAT(MAX(t.trdatetime), '%T') AS timeout"),
                 DB::raw("
-                    CASE
-                        WHEN c.isweekday = 1 AND c.isholiday = 0 AND TIME(MAX(t.trdatetime)) <= '16:30:00' THEN 1
-                        ELSE 0
-                    END AS earlyout
-                "),
+                CASE
+                    WHEN c.isweekday = 1 AND c.isholiday = 0 AND TIME(MAX(t.trdatetime)) <= '16:30:00' THEN 1
+                    ELSE 0
+                END AS earlyout
+            "),
                 DB::raw("
-                    (
-                        SELECT a.diskripsi
-                        FROM trans_alasan AS ta
-                        LEFT JOIN alasan AS a ON ta.alasan_id = a.id
-                        WHERE ta.log_datetime = (
-                            SELECT MAX(t2.trdatetime) FROM transit AS t2 WHERE t2.staffid = t.staffid
-                        )
-                        AND ta.idpeg = $userId
-                        AND ta.jenisalasan_id = 2
-                        AND ta.is_deleted = 0
-                    ) AS earlyreason
-                "),
+                (
+                    SELECT a.diskripsi
+                    FROM trans_alasan AS ta
+                    LEFT JOIN alasan AS a ON ta.alasan_id = a.id
+                    WHERE ta.log_datetime = (
+                        SELECT MAX(t2.trdatetime) 
+                        FROM transit AS t2 
+                        WHERE t2.staffid = t.staffid
+                    )
+                    AND ta.idpeg = $userId
+                    AND ta.jenisalasan_id = 2
+                    AND ta.is_deleted = 0
+                    LIMIT 1
+                ) AS earlyreason
+            "),
                 DB::raw("
-                    (
-                        SELECT ta.status
-                        FROM trans_alasan AS ta
-                        WHERE ta.log_datetime = MAX(t.trdatetime)
-                            AND ta.idpeg = $userId
-                            AND ta.jenisalasan_id = 2
-                            AND ta.is_deleted = 0
-                    ) AS statusearly
-                ")
+                (
+                    SELECT ta.status
+                    FROM trans_alasan AS ta
+                    WHERE ta.log_datetime = (
+                        SELECT MAX(t2.trdatetime) 
+                        FROM transit AS t2 
+                        WHERE t2.staffid = t.staffid
+                    )
+                    AND ta.idpeg = $userId
+                    AND ta.jenisalasan_id = 2
+                    AND ta.is_deleted = 0
+                    LIMIT 1
+                ) AS statusearly
+            ")
             )
             ->whereBetween('c.fulldate', [$startDay, $lastDay])
             ->where('c.isweekday', 1)
@@ -488,6 +505,8 @@ class AttendanceRecordRepository
             return (array) $record;
         })->toArray();
     }
+
+
 
 
 
