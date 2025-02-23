@@ -10,9 +10,11 @@ use App\Helpers\ResponseHelper;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 use Illuminate\Support\Facades\Mail;
 use App\Mail\AduanEmail;
+use Illuminate\Support\Facades\DB;
 
 
 class ComplaintController extends Controller
@@ -78,16 +80,49 @@ class ComplaintController extends Controller
             'tajuk_aduan' => 'required|string|max:255',
             'catatan_pegawai' => 'nullable|string|max:1000',
             'email' => 'required|email',
+            'recipient_email' => 'required|email', // Dynamic recipient email
         ]);
 
-        // Send email
-        Mail::to($validated['email'])->send(new AduanEmail($validated));
+        // Get authenticated user ID
+        $userId = Auth::id();
+
+        // Fetch user details (fullname, email, department)
+        $user = DB::table('users')
+            ->leftJoin('department', 'users.department_id', '=', 'department.id')
+            ->select(
+                'users.fullname',
+                'users.email',
+                'department.diskripsi AS nama_bahagian'
+            )
+            ->where('users.id', $userId)
+            ->first();
+
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'User details not found.',
+            ], 404);
+        }
+
+        // Email Data
+        $aduanData = [
+            'fullname' => $user->fullname,
+            'email' => $user->email, // Sender Email
+            'nama_bahagian' => $user->nama_bahagian ?? 'N/A',
+            'tarikh_aduan' => now()->format('d/m/Y'),
+            'tajuk_aduan' => $validated['tajuk_aduan'],
+            'catatan_pegawai' => $validated['catatan_pegawai'] ?? 'N/A',
+        ];
+
+        // Send email with dynamic recipient
+        Mail::to($validated['recipient_email'])->send(new AduanEmail($aduanData, $validated['recipient_email']));
 
         return response()->json([
             'status' => 'success',
             'message' => 'Aduan has been sent successfully.',
         ]);
     }
+
 
 
 }

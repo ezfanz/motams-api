@@ -11,15 +11,18 @@ class AduanEmail extends Mailable
     use Queueable, SerializesModels;
 
     public $data;
+    public $recipientEmail; // Store recipient email
 
     /**
      * Create a new message instance.
      *
      * @param array $data
+     * @param string $recipientEmail
      */
-    public function __construct(array $data)
+    public function __construct(array $data, string $recipientEmail)
     {
         $this->data = $data;
+        $this->recipientEmail = $recipientEmail;
     }
 
     /**
@@ -29,7 +32,9 @@ class AduanEmail extends Mailable
      */
     public function build()
     {
-        return $this->subject('Aduan: ' . $this->data['tajuk_aduan'])
+        return $this->from($this->data['email']) // Sender's email
+                    ->to($this->recipientEmail) // Dynamic recipient from request
+                    ->subject('Aduan: ' . $this->data['tajuk_aduan'])
                     ->view('emails.aduan')
                     ->with('data', $this->data);
     }
