@@ -13,7 +13,7 @@ use App\Models\TransAlasan;
 use Carbon\Carbon;
 use App\Models\Status;
 
- 
+
 
 class AttendanceRecordRepository
 {
@@ -172,25 +172,25 @@ class AttendanceRecordRepository
 
         // Perform the query
         $results = DB::table('calendars')
-        ->leftJoin('transit', function ($join) use ($staffId) {
-            $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
-            ->where('transit.staffid', '=', (int) $staffId);
-        })
+            ->leftJoin('transit', function ($join) use ($staffId) {
+                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
+                    ->where('transit.staffid', '=', (int) $staffId);
+            })
             ->leftJoin('trans_alasan AS late_alasan', function ($join) use ($userId) {
                 $join->on('late_alasan.log_datetime', '=', DB::raw('(SELECT MIN(trdatetime) FROM transit WHERE transit.staffid = late_alasan.idpeg)'))
-                ->where('late_alasan.idpeg', '=', (int) $userId)
+                    ->where('late_alasan.idpeg', '=', (int) $userId)
                     ->where('late_alasan.jenisalasan_id', '=', 1)
                     ->where('late_alasan.is_deleted', '=', 0);
             })
             ->leftJoin('trans_alasan AS early_alasan', function ($join) use ($userId) {
                 $join->on('early_alasan.log_datetime', '=', DB::raw('(SELECT MAX(trdatetime) FROM transit WHERE transit.staffid = early_alasan.idpeg)'))
-                ->where('early_alasan.idpeg', '=', (int) $userId)
+                    ->where('early_alasan.idpeg', '=', (int) $userId)
                     ->where('early_alasan.jenisalasan_id', '=', 2)
                     ->where('early_alasan.is_deleted', '=', 0);
             })
             ->leftJoin('trans_alasan AS absent_alasan', function ($join) use ($userId) {
                 $join->on('absent_alasan.log_datetime', '=', 'calendars.fulldate')
-                ->where('absent_alasan.idpeg', '=', (int) $userId)
+                    ->where('absent_alasan.idpeg', '=', (int) $userId)
                     ->where('absent_alasan.jenisalasan_id', '=', 3)
                     ->where('absent_alasan.is_deleted', '=', 0);
             })
@@ -347,16 +347,15 @@ class AttendanceRecordRepository
             ->where('trans_alasan.idpeg', '=', $userId)
             ->where('trans_alasan.jenisalasan_id', '=', 3) // Reason type ID for absence
             ->where('trans_alasan.is_deleted', '!=', 1);
-
+    
         // Main query for calendars and absence details
         $query = DB::table('calendars')
             ->leftJoin('transit', function ($join) use ($userId) {
                 $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
-                    ->where('transit.staffid', '=', $userId)
-                    ->whereNull('transit.trdatetime'); // Null trdatetime indicates absence
+                    ->where('transit.staffid', '=', $userId);
             })
             ->leftJoinSub($reasonSubquery, 'reasons_sub', function ($join) {
-                $join->on('calendars.fulldate', '=', 'reasons_sub.log_datetime');
+                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(reasons_sub.log_datetime)'));
             })
             ->select(
                 'calendars.fulldate',
@@ -371,12 +370,13 @@ class AttendanceRecordRepository
                 'reasons_sub.statusabsent'
             )
             ->whereBetween('calendars.fulldate', [$startDay, $lastDay])
-            ->where('calendars.isweekday', 1)
-            ->where('calendars.isholiday', 0)
+            ->where('calendars.isweekday', 1)  // Ensure it's a working day
+            ->where('calendars.isholiday', 0)  // Ensure it's not a holiday
             ->where(function ($query) {
-                $query->whereNotNull('transit.trdatetime') // Transit data exists
-                    ->orWhereNotNull('reasons_sub.absentreasont'); // Absence reason exists
+                $query->whereNull('transit.trdatetime')  // No check-in/out
+                      ->orWhereNotNull('reasons_sub.absentreasont'); // Absence reason exists
             })
+            ->whereNotNull('reasons_sub.absentreasont')  // Ensure only valid absences are included
             ->groupBy(
                 'calendars.fulldate',
                 'calendars.isweekday',
@@ -386,16 +386,21 @@ class AttendanceRecordRepository
                 'reasons_sub.statusabsent'
             )
             ->orderBy('calendars.fulldate', 'ASC');
-
-        // Fetch records and map additional fields
+    
+        // Debug Query
+        \Log::info("Absent Records Query", ['sql' => $query->toSql(), 'bindings' => $query->getBindings()]);
+    
+        // Fetch records
         $records = $query->get();
-
+    
         return $records->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->fulldate));
             $record->box_color = $this->determineBoxColor($record->statusabsent);
-            return $record;
+            return (array) $record;
         })->toArray();
     }
+    
+
 
 
 
@@ -404,12 +409,13 @@ class AttendanceRecordRepository
         $staffId = User::where('is_deleted', '!=', 1)
             ->where('id', $userId)
             ->value('staffid');
-    
+
         if (!$staffId) {
             return []; // Ensure an empty array if staffId is not found
         }
-    
-        $query = DB::table('lateinoutview')
+
+        // Fetch raw records first (without joining trans_alasan)
+        $records = DB::table('lateinoutview')
             ->select(
                 'lateinoutview.staffid',
                 'lateinoutview.day',
@@ -419,45 +425,48 @@ class AttendanceRecordRepository
                 'lateinoutview.datetimeout',
                 DB::raw("DATE_FORMAT(lateinoutview.datetimeout, '%T') AS timeout"),
                 'lateinoutview.earlyout',
-                DB::raw("$userId AS idpeg"),
-                DB::raw("(
-                    SELECT alasan.diskripsi
-                    FROM trans_alasan
-                    LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
-                    WHERE trans_alasan.log_datetime = lateinoutview.datetimeout
-                      AND trans_alasan.idpeg = $userId
-                      AND trans_alasan.jenisalasan_id = 2
-                      AND trans_alasan.is_deleted = 0
-                ) AS earlyreason"),
-                DB::raw("(
-                    SELECT trans_alasan.status
-                    FROM trans_alasan
-                    WHERE trans_alasan.log_datetime = lateinoutview.datetimeout
-                      AND trans_alasan.idpeg = $userId
-                      AND trans_alasan.jenisalasan_id = 2
-                      AND trans_alasan.is_deleted = 0
-                ) AS statusearly")
+                DB::raw("$userId AS idpeg")
             )
             ->where('lateinoutview.staffid', $staffId)
             ->whereBetween('lateinoutview.trdate', [$startDay, $lastDay])
             ->where('lateinoutview.earlyout', 1)
             ->where('lateinoutview.isweekday', 1)
             ->where('lateinoutview.isholiday', 0)
-            ->orderBy('lateinoutview.trdate', 'ASC');
-    
-        $records = $query->get();
-    
-        if ($records->isEmpty()) {
-            return []; // Ensure an empty array is returned instead of null
-        }
-    
-        return $records->map(function ($record) {
-            $record->date_display = date('d/m/Y', strtotime($record->trdate));
-            $record->box_color = $this->determineBoxColor($record->statusearly);
-            return (array) $record; // Ensure each record is cast to an array
-        })->toArray();
+            ->orderBy('lateinoutview.trdate', 'ASC')
+            ->get()
+            ->map(function ($record) use ($userId) {
+                // Convert datetimeout to the same format used in trans_alasan
+                $formattedDatetimeout = date('Y-m-d H:i:s', strtotime($record->datetimeout));
+
+                // Fetch matching trans_alasan record in PHP instead of SQL join
+                $transAlasan = DB::table('trans_alasan')
+                ->leftJoin('alasan', 'trans_alasan.alasan_id', '=', 'alasan.id')
+                ->select('alasan.diskripsi as earlyreason', 'trans_alasan.status as statusearly')
+                ->whereRaw("DATE(trans_alasan.log_datetime) = ?", [date('Y-m-d', strtotime($record->datetimeout))])  // Match Date
+                ->whereRaw("TIME(trans_alasan.log_datetime) = ?", [date('H:i:s', strtotime($record->datetimeout))])  // Match Time
+                ->where('trans_alasan.idpeg', $userId)
+                ->where('trans_alasan.jenisalasan_id', 2)
+                ->where('trans_alasan.is_deleted', 0)
+                ->first();
+
+                // Attach reason and status
+                $record->earlyreason = $transAlasan->earlyreason ?? null;
+                $record->statusearly = $transAlasan->statusearly ?? null;
+
+                // Format date display
+                $record->date_display = date('d/m/Y', strtotime($record->trdate));
+                $record->box_color = $this->determineBoxColor($record->statusearly);
+
+                return (array) $record;
+            })
+            ->toArray();
+
+        return $records;
     }
-    
+
+
+
+
 
 
     private function determineBoxColor($status = null)
@@ -465,7 +474,7 @@ class AttendanceRecordRepository
         if (is_null($status)) {
             return '#dc3545'; // Default red if status is missing
         }
-    
+
         return match ($status) {
             4 => '#28a745', // Green
             2 => '#17a2b8', // Blue
@@ -473,7 +482,7 @@ class AttendanceRecordRepository
             default => '#dc3545', // Red
         };
     }
-    
+
 
 
     /**
@@ -604,7 +613,7 @@ class AttendanceRecordRepository
         $month = $filters['month'] ?? null;
         $year = $filters['year'] ?? null;
         $status = $filters['status'] ?? null;
-    
+
         $query = DB::table('trans_alasan')
             ->select(
                 'trans_alasan.id',
@@ -622,27 +631,27 @@ class AttendanceRecordRepository
             ->leftJoin('alasan', 'trans_alasan.alasan_id', '=', 'alasan.id')
             ->leftJoin('jenis_alasan', 'trans_alasan.jenisalasan_id', '=', 'jenis_alasan.id')
             ->where('trans_alasan.is_deleted', '!=', 1);
-    
+
         // Role-based filtering
         if ($roleId != 3) { // Non-admin roles
             $query->where('users.penyemak_id', $userId);
         }
-    
+
         // Status-based filtering
         if (!empty($status)) {
             $query->where('trans_alasan.status', $status);
         }
-    
+
         // Month-year filtering
         if (!empty($month) && !empty($year)) {
             $firstDayOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateTimeString();
             $lastDayOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
             $query->whereBetween('trans_alasan.log_datetime', [$firstDayOfMonth, $lastDayOfMonth]);
         }
-    
+
         // Order by log date descending
         $query->orderBy('trans_alasan.log_datetime', 'DESC');
-    
+
         // Map the results for UI formatting
         return $query->get()->map(function ($record) {
             return [

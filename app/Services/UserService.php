@@ -253,10 +253,10 @@ class UserService
 
     public function getAttendanceSummary($idstaff, $idpeg)
     {
-
         $startDate = now()->startOfYear()->toDateString();
         $endDate = now()->endOfYear()->toDateString();
-
+    
+        // Query for lateness & early out
         $calendarRecords = Calendar::select(
             'calendars.fulldate',
             'calendars.isweekday',
@@ -264,73 +264,60 @@ class UserService
             DB::raw("MIN(transit.trdatetime) AS datetimein"),
             DB::raw("MAX(transit.trdatetime) AS datetimeout"),
             DB::raw("
-            CASE WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 
-            AND TIME(MIN(transit.trdatetime)) >= '09:01:00' THEN 1 ELSE 0 END AS latein
-        "),
+                CASE 
+                    WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 
+                    AND TIME(MIN(transit.trdatetime)) >= '09:01:00' THEN 1 
+                    ELSE 0 
+                END AS latein
+            "),
             DB::raw("
-            CASE WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 
-            AND TIME(MAX(transit.trdatetime)) <= '16:30:00' THEN 1 ELSE 0 END AS earlyout
-        "),
-            DB::raw("trans_alasan.catatan_peg AS absentreasont") // ✅ Fix: Use correct column name
+                CASE 
+                    WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 
+                    AND TIME(MAX(transit.trdatetime)) <= '16:30:00' THEN 1 
+                    ELSE 0 
+                END AS earlyout
+            ")
         )
-            ->leftJoin('transit', function ($join) use ($idstaff) {
-                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
-                    ->where('transit.staffid', $idstaff);
-            })
-            ->leftJoin('trans_alasan', function ($join) use ($idpeg) {
-                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(trans_alasan.log_datetime)'))
-                    ->where('trans_alasan.idpeg', $idpeg)
-                    ->where('trans_alasan.jenisalasan_id', 3) // Absence reason
-                    ->where('trans_alasan.is_deleted', '!=', 1);
-            })
-            ->whereBetween('calendars.fulldate', [$startDate, $endDate])
-            ->groupBy(
-                'calendars.fulldate',
-                'calendars.isweekday',
-                'calendars.isholiday',
-                'trans_alasan.catatan_peg' // ✅ Fix: Group by correct column
-            )
-            ->get();
-
-        $absentCount = 0;
+        ->leftJoin('transit', function ($join) use ($idstaff) {
+            $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
+                ->where('transit.staffid', $idstaff);
+        })
+        ->whereBetween('calendars.fulldate', [$startDate, $endDate])
+        ->groupBy('calendars.fulldate', 'calendars.isweekday', 'calendars.isholiday')
+        ->get();
+    
+        // Fetch back-early records
+        $backEarlyRecords = DB::table('lateinoutview')
+            ->where('staffid', $idstaff)
+            ->whereBetween('trdate', [$startDate, $endDate])
+            ->where('earlyout', 1)
+            ->where('isweekday', 1)
+            ->where('isholiday', 0)
+            ->count();
+    
+        // Fetch absence records
+        $absentRecords = $this->fetchAbsentRecordsCount($idpeg, $startDate, $endDate);
+        $absentCount = $absentRecords['total_absent_count'];
+    
+        // Initialize counters
         $lateCount = 0;
         $earlyOutCount = 0;
-
-
+    
         foreach ($calendarRecords as $record) {
             if ($record->isweekday && !$record->isholiday) {
-                // Debug each record to see how absences are being counted
-                Log::info("Checking attendance record", [
-                    'date' => $record->fulldate,
-                    'datetimein' => $record->datetimein,
-                    'datetimeout' => $record->datetimeout,
-                    'absentreasont' => $record->absentreasont ?? 'NONE'
-                ]);
-
-                // Fixing the absence condition to match /attendance-records/list?type=absent
-                if (is_null($record->datetimein) && is_null($record->datetimeout) && ($record->absentreasont === null || $record->absentreasont === '')) { {
-                        $absentCount++;
-                    }
-                    if ($record->latein == 1) {
-                        $lateCount++;
-                    }
-                    if ($record->earlyout == 1) {
-                        $earlyOutCount++;
-                    }
+                if ($record->latein == 1) {
+                    $lateCount++;
                 }
             }
-
-            // 🔹 Fetch absent records count from `fetchAbsentRecordsCount()`
-            $absentRecords = $this->fetchAbsentRecordsCount($idpeg, $startDate, $endDate);
-            $absentCount = $absentRecords['total_absent_count'];
-
-            return [
-                'lewat_tanpa_sebab' => $lateCount,
-                'balik_awal_tanpa_sebab' => $earlyOutCount,
-                'tidak_hadir_tanpa_sebab' => $absentCount,
-            ];
         }
+    
+        return [
+            'lewat_tanpa_sebab' => $lateCount,
+            'balik_awal_tanpa_sebab' => $backEarlyRecords, // ✅ Fix: Now correctly counted
+            'tidak_hadir_tanpa_sebab' => $absentCount,
+        ];
     }
+    
 
     private function calculateBilCounts($userId, $roleId)
     {
