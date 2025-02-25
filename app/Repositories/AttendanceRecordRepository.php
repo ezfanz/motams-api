@@ -419,101 +419,68 @@ class AttendanceRecordRepository
     
 
 
-
-
     public function fetchEarlyLeaveRecords(int $userId, string $startDay, string $lastDay): array
     {
-        // Fetch the staff ID for the given user
+        // Get staff ID for the given user
         $idStaff = User::where('is_deleted', '!=', 1)->where('id', $userId)->value('staffid');
-
+    
         if (!$idStaff) {
             Log::error("Error: Staff ID not found for user ID: $userId");
             return [];
         }
-
-        // Query to get early leave attendance records
-        $records = DB::table('calendars AS c')
-            ->leftJoin('transit AS t', function ($join) use ($idStaff) {
-                $join->on(DB::raw('DATE(c.fulldate)'), '=', DB::raw('DATE(t.trdate)'))
-                    ->where('t.staffid', $idStaff);
-            })
+    
+        // Query early leave records from lateinoutview
+        $records = DB::table('lateinoutview AS l')
             ->select(
-                'c.fulldate',
-                'c.year',
-                'c.monthname',
-                'c.dayname',
-                'c.isweekday',
-                'c.isholiday',
-                't.staffid',
+                'l.staffid',
+                'l.day',
+                'l.trdate',
+                'l.isweekday',
+                'l.isholiday',
+                'l.datetimeout',
+                'l.timeout',
+                'l.earlyout',
                 DB::raw("$userId AS idpeg"),
-                DB::raw('MAX(t.trdatetime) AS datetimeout'),
-                DB::raw("DATE_FORMAT(MAX(t.trdatetime), '%T') AS timeout"),
                 DB::raw("
-                CASE
-                    WHEN c.isweekday = 1 AND c.isholiday = 0 AND TIME(MAX(t.trdatetime)) <= '16:30:00' THEN 1
-                    ELSE 0
-                END AS earlyout
-            "),
+                    (
+                        SELECT a.diskripsi
+                        FROM trans_alasan AS ta
+                        LEFT JOIN alasan AS a ON ta.alasan_id = a.id
+                        WHERE ta.log_datetime = l.datetimeout
+                        AND ta.idpeg = $userId
+                        AND ta.jenisalasan_id = 2
+                        AND ta.is_deleted = 0
+                        LIMIT 1
+                    ) AS earlyreason
+                "),
                 DB::raw("
-                (
-                    SELECT a.diskripsi
-                    FROM trans_alasan AS ta
-                    LEFT JOIN alasan AS a ON ta.alasan_id = a.id
-                    WHERE ta.log_datetime = (
-                        SELECT MAX(t2.trdatetime) 
-                        FROM transit AS t2 
-                        WHERE t2.staffid = t.staffid
-                    )
-                    AND ta.idpeg = $userId
-                    AND ta.jenisalasan_id = 2
-                    AND ta.is_deleted = 0
-                    LIMIT 1
-                ) AS earlyreason
-            "),
-                DB::raw("
-                (
-                    SELECT ta.status
-                    FROM trans_alasan AS ta
-                    WHERE ta.log_datetime = (
-                        SELECT MAX(t2.trdatetime) 
-                        FROM transit AS t2 
-                        WHERE t2.staffid = t.staffid
-                    )
-                    AND ta.idpeg = $userId
-                    AND ta.jenisalasan_id = 2
-                    AND ta.is_deleted = 0
-                    LIMIT 1
-                ) AS statusearly
-            ")
+                    (
+                        SELECT ta.status
+                        FROM trans_alasan AS ta
+                        WHERE ta.log_datetime = l.datetimeout
+                        AND ta.idpeg = $userId
+                        AND ta.jenisalasan_id = 2
+                        AND ta.is_deleted = 0
+                        LIMIT 1
+                    ) AS statusearly
+                ")
             )
-            ->whereBetween('c.fulldate', [$startDay, $lastDay])
-            ->where('c.isweekday', 1)
-            ->where('c.isholiday', 0)
-            ->whereNotNull('t.trdatetime')
-            ->groupBy(
-                'c.fulldate',
-                'c.year',
-                'c.monthname',
-                'c.dayname',
-                'c.isweekday',
-                'c.isholiday',
-                't.staffid'
-            )
-            ->havingRaw('TIME(MAX(t.trdatetime)) <= "16:30:00"')
-            ->orderBy('c.fulldate', 'ASC')
+            ->where('l.staffid', $idStaff)
+            ->whereBetween('l.trdate', [$startDay, $lastDay])
+            ->where('l.earlyout', 1)
+            ->where('l.isweekday', 1)
+            ->where('l.isholiday', 0)
+            ->orderBy('l.trdate', 'ASC')
             ->get();
-
-        // Map records for display and apply box color logic
+    
+        // Format results
         return $records->map(function ($record) {
-            $record->date_display = date('d/m/Y', strtotime($record->fulldate));
+            $record->date_display = date('d/m/Y', strtotime($record->trdate));
             $record->box_color = $this->determineBoxColor($record->statusearly);
             return (array) $record;
         })->toArray();
     }
-
-
-
-
+    
 
 
     private function determineBoxColor($status = null)
