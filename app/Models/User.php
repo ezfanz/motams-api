@@ -30,6 +30,8 @@ class User extends Authenticatable implements JWTSubject
         'remember_token',
         'role_id',
         'department_id',
+        'penyemak_id', 
+        'pengesah_id', 
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -64,9 +66,9 @@ class User extends Authenticatable implements JWTSubject
     public function roles()
     {
         return $this->belongsTo(Role::class, 'role_id', 'id');
-    }  
+    }
 
-                                                                        
+
     public function hasRole($roleName)
     {
         return $this->role && $this->role->diskripsi === $roleName;
@@ -97,4 +99,15 @@ class User extends Authenticatable implements JWTSubject
     {
         return $this->belongsTo(Department::class);
     }
+
+    public function penyemak()
+    {
+        return $this->belongsTo(User::class, 'penyemak_id', 'id');
+    }
+    
+    public function pengesah()
+    {
+        return $this->belongsTo(User::class, 'pengesah_id', 'id');
+    }
+
 }

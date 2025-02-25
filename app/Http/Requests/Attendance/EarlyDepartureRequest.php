@@ -25,7 +25,7 @@ class EarlyDepartureRequest extends FormRequest
             'statalasan' => 'required_if:statusearly,1|required_if:statusearly,3|integer|exists:alasan,id',
             'catatanpeg' => 'required_if:statusearly,1|required_if:statusearly,3|string|max:255',
             'statusearly' => 'nullable|integer|in:1,2,3,4,5', // Valid status codes
-            'transid' => 'nullable|integer|exists:trans_alasan,id', // Only required for edits
+            'transid' => 'nullable|integer|exists:trans_alasan,id|required_if:statusearly,!=,1', // Only required for edits
         ];
     }
 

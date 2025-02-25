@@ -165,6 +165,21 @@ class UserService
         $jawatan = $user->jawatan;
         $roleId = $user->role_id;
         $logterakhir = $user->updated_at;
+
+        // Fetch latest trans_alasan for the user
+        $transAlasan = TransAlasan::where('idpeg', $idpeg)
+            ->where('is_deleted', 0)
+            ->orderBy('log_datetime', 'DESC') // Get the latest transaction
+            ->first();
+
+        $transAlasanDetails = $transAlasan ? [
+            'transid' => $transAlasan->id,
+            'log_datetime' => $transAlasan->log_datetime,
+            'alasan_id' => $transAlasan->alasan_id,
+            'jenisalasan_id' => $transAlasan->jenisalasan_id,
+            'catatan_peg' => $transAlasan->catatan_peg,
+            'status' => $transAlasan->status,
+        ] : null;
     
         // Calculate remaining hours
         $remainingHours = OfficeLeaveRequest::where('idpeg', $idpeg)
@@ -228,6 +243,7 @@ class UserService
                 'total_leave_requests' => $tindakan_kelulusan_count,
                 'total_pending_reviews' => $bilsemakan,
                 'total_pending_approvals' => $bilpengesahan,
+                'trans_alasan' => $transAlasanDetails
             ]
         ]);
     }

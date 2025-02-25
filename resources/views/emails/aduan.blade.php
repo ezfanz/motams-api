@@ -1,12 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Aduan</title>
+    <style>
+        body {
+            font-size: 14px;
+            font-family: Arial, Helvetica, sans-serif;
+        }
+    </style>
 </head>
 <body>
-    <h1>Aduan</h1>
-    <p><strong>Tajuk Aduan:</strong> {{ $data['tajuk_aduan'] }}</p>
-    <p><strong>Catatan Pegawai:</strong> {{ $data['catatan_pegawai'] ?? 'Tiada' }}</p>
-    <p><strong>Dihantar Oleh:</strong> {{ $data['email'] }}</p>
+    Assalamualaikum dan Salam Sejahtera,
+    <br><br>
+    Tuan/Puan,
+    <br><br>
+    <b>MAKLUMAN ADUAN APLIKASI MOBILE MOTAMS</b>
+    <br><br>
+    Dengan hormatnya perkara di atas adalah dirujuk.
+    <br><br>
+    2. Adalah dimaklumkan bahawa satu aduan telah direkodkan dalam aplikasi mobile Motams untuk tindakan tuan/puan.
+    <br><br>
+    3. Maklumat aduan adalah seperti berikut:
+    <br>
+    <ul>
+        <li><b>Nama Pengadu :</b> {{ $data['fullname'] }}</li>
+        <li><b>Bahagian / Unit :</b> {{ $data['nama_bahagian'] }}</li>
+        <li><b>Tarikh Aduan :</b> {{ $data['tarikh_aduan'] }}</li>
+        <li><b>Tajuk Aduan :</b> {{ $data['tajuk_aduan'] }}</li>
+        <li><b>Deskripsi Aduan :</b> {{ $data['catatan_pegawai'] }}</li>
+    </ul>
+    <br>
+    Perhatian dan kerjasama tuan/puan mengenai perkara di atas didahului dengan ucapan terima kasih.
+    <br><br>
+    Sekian.
+    <br><br>
+    <b>(Pentadbir Mobile MOTAMS)</b>
+    <br><br><br>
+    <i>Ini adalah emel yang dijana oleh sistem. Sila jangan balas emel ini.</i>
 </body>
 </html>

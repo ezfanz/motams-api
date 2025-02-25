@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Repositories\AttendanceActionRepository;
 use Carbon\Carbon;
+use App\Models\TransAlasan;
 
 class AttendanceActionService
 {
@@ -16,34 +17,39 @@ class AttendanceActionService
 
     public function handleEarlyDeparture(array $data)
     {
+        // Check if a transaction exists
         $statusDetails = $this->attendanceActionRepository->getAttendanceStatus(
             $data['idpeg'],
             $data['datetimeout'],
             2 // Early Departure jenisalasan_id
         );
-
+    
         $boxColor = $this->getBoxColor($statusDetails['status_code'] ?? null);
-
-        if ($statusDetails) {
-            switch ($statusDetails['status_code']) {
+    
+        // If updating an existing record (transid exists)
+        if (!empty($data['transid'])) {
+            $existingRecord = TransAlasan::find($data['transid']);
+    
+            if (!$existingRecord) {
+                return $this->response('Transaction ID not found.', '#dc3545', 404);
+            }
+    
+            switch ($existingRecord->status) {
                 case 4: // Green (Approved)
                     return $this->response('Approved record. No changes allowed.', $boxColor, 200);
-
                 case 2: // Blue (Pending Verification)
                     return $this->response('Pending verification. Cannot edit.', $boxColor, 200);
-
                 case 1: // Yellow (Pending Adjustment)
                 case 3: // Yellow (Needs Correction)
                 case 5: // Yellow
                     $this->attendanceActionRepository->updateRecord($data, 2);
                     return $this->response('Record updated successfully.', $boxColor, 200);
-
                 default:
                     return $this->response('Unhandled status.', $boxColor, 400);
             }
         }
-
-        // Create new record if no status found
+    
+        // If no existing record, create a new one
         $this->attendanceActionRepository->createRecord($data, 2);
         return $this->response('New record created successfully.', $boxColor, 201);
     }
