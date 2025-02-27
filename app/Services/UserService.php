@@ -104,7 +104,7 @@ class UserService
     public function getAllUsers()
     {
         // Fetch all users and eager load relationships
-        $users = $this->userRepository->all()->load(['reviewingOfficer', 'approvingOfficer', 'roles']);
+        $users = $this->userRepository->all()->load(['penyemak', 'pengesah', 'roles']);
 
         // Format each user's response
         return $users->map(function ($user) {

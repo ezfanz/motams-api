@@ -62,7 +62,7 @@ class OfficeLeaveRequestService
             'start_time' => $data['masa_keluar'] ?? null,
             'end_time' => $data['masa_kembali'] ?? null,
             'reason' => $data['catatan'],
-            'tkh_mohon' => Carbon::now(),
+            'tkh_mohon' => Carbon::now()->format('Y-m-d H:i:s.u'),
             'status' => 15, // Pending status
             'id_pencipta' => $userId,
             'pengguna' => $userId,
