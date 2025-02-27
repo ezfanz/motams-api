@@ -154,11 +154,11 @@ class UserService
     public function getUserProfile($userId)
     {
         $user = User::where('is_deleted', '!=', 1)->find($userId);
-    
+
         if (!$user) {
             return response()->json(['error' => 'User not found'], 404);
         }
-    
+
         $idpeg = $user->id;
         $idstaff = $user->staffid;
         $nama = $user->fullname;
@@ -180,23 +180,53 @@ class UserService
             'catatan_peg' => $transAlasan->catatan_peg,
             'status' => $transAlasan->status,
         ] : null;
-    
-        // Calculate remaining hours
-        $remainingHours = OfficeLeaveRequest::where('idpeg', $idpeg)
+
+        // Enable Query Logging
+        DB::enableQueryLog();
+
+        // Check if office leave request exists for today
+        $leaveExists = DB::table('office_leave_requests')
+            ->where('idpeg', $idpeg)
             ->whereDate('date_mula', now()->toDateString())
-            ->where('status', '16')
+            ->where('status', '13')
             ->where('is_deleted', 0)
-            ->selectRaw('(4 - SUM(TIMESTAMPDIFF(MINUTE, start_time, end_time) / 60)) AS remaining_hours')
-            ->value('remaining_hours');
-    
-        if ($remainingHours !== null) {
-            $hours = floor($remainingHours);
-            $minutes = ($remainingHours - $hours) * 60;
-            $remainingHours = sprintf('%02d:%02d', $hours, $minutes);
+            ->exists();
+
+        if (!$leaveExists) {
+            $remainingHours = 'Tiada Permohonan Keluar Pejabat Hari Ini';
         } else {
-            $remainingHours = '04:00';
+            // Use raw query to get remaining hours
+            $result = DB::select("
+            SELECT (4 - IFNULL(SUM(TIMESTAMPDIFF(MINUTE, start_time, end_time) / 60), 0)) AS remaining_hours
+            FROM office_leave_requests
+            WHERE idpeg = ? 
+            AND date_mula = ? 
+            AND status = ? 
+            AND is_deleted = ?
+        ", [$idpeg, now()->toDateString(), '13', 0]);
+
+            // Extract value from query result
+            $remainingHours = $result[0]->remaining_hours ?? null;
+
+            \Log::info("Raw remaining_hours from DB: " . json_encode($remainingHours));
+
+            if ($remainingHours !== null) {
+                $hours = floor($remainingHours);
+                $minutes = floor(($remainingHours - $hours) * 60);
+
+                if ($minutes >= 60) {
+                    $hours++;
+                    $minutes = 0;
+                }
+
+                $remainingHours = sprintf('%02d:%02d', $hours, $minutes);
+            } else {
+                $remainingHours = '04:00';
+            }
         }
-    
+
+        \Log::info("Formatted Remaining Hours: " . json_encode($remainingHours));
+
         // Get today's attendance log
         $datenow = now()->format('Y-m-d');
         $attendanceLog = Transit::select(
@@ -206,28 +236,28 @@ class UserService
             ->where('staffid', $idstaff)
             ->where('trdate', $datenow)
             ->first();
-    
+
         $timein = $attendanceLog->timein ?? '--:--:--';
         $timeout = $attendanceLog->timeout ?? '--:--:--';
-    
+
         // Attendance summary
         $attendanceSummary = $this->getAttendanceSummary($idstaff, $idpeg);
-    
+
         // Color change count
         $countColorsAll = PenukaranWarna::leftJoin('warna', 'warna.id', '=', 'penukaranwarna.warna')
             ->where('penukaranwarna.is_deleted', '!=', 1)
             ->where('penukaranwarna.idpeg', $idpeg)
             ->whereIn('penukaranwarna.status', [7, 8, 9, 10, 11, 12])
             ->count();
-    
+
         // Total leave requests
         $tindakan_kelulusan_count = OfficeLeaveRequest::where('status', '15')
             ->where('pelulus_id', $idpeg)
             ->count();
-    
+
         // Pending reviews and approvals
         [$bilsemakan, $bilpengesahan] = $this->calculateBilCounts($userId, $roleId);
-    
+
         return response()->json([
             'status' => 'success',
             'message' => 'Profile retrieved successfully',
@@ -247,6 +277,7 @@ class UserService
             ]
         ]);
     }
+
 
     private function calculateRemainingHours($userId)
     {
@@ -271,7 +302,7 @@ class UserService
     {
         $startDate = now()->startOfYear()->toDateString();
         $endDate = now()->endOfYear()->toDateString();
-    
+
         // Query for lateness & early out
         $calendarRecords = Calendar::select(
             'calendars.fulldate',
@@ -294,14 +325,14 @@ class UserService
                 END AS earlyout
             ")
         )
-        ->leftJoin('transit', function ($join) use ($idstaff) {
-            $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
-                ->where('transit.staffid', $idstaff);
-        })
-        ->whereBetween('calendars.fulldate', [$startDate, $endDate])
-        ->groupBy('calendars.fulldate', 'calendars.isweekday', 'calendars.isholiday')
-        ->get();
-    
+            ->leftJoin('transit', function ($join) use ($idstaff) {
+                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
+                    ->where('transit.staffid', $idstaff);
+            })
+            ->whereBetween('calendars.fulldate', [$startDate, $endDate])
+            ->groupBy('calendars.fulldate', 'calendars.isweekday', 'calendars.isholiday')
+            ->get();
+
         // Fetch back-early records
         $backEarlyRecords = DB::table('lateinoutview')
             ->where('staffid', $idstaff)
@@ -310,15 +341,15 @@ class UserService
             ->where('isweekday', 1)
             ->where('isholiday', 0)
             ->count();
-    
+
         // Fetch absence records
         $absentRecords = $this->fetchAbsentRecordsCount($idpeg, $startDate, $endDate);
         $absentCount = $absentRecords['total_absent_count'];
-    
+
         // Initialize counters
         $lateCount = 0;
         $earlyOutCount = 0;
-    
+
         foreach ($calendarRecords as $record) {
             if ($record->isweekday && !$record->isholiday) {
                 if ($record->latein == 1) {
@@ -326,14 +357,14 @@ class UserService
                 }
             }
         }
-    
+
         return [
             'lewat_tanpa_sebab' => $lateCount,
-            'balik_awal_tanpa_sebab' => $backEarlyRecords, // ✅ Fix: Now correctly counted
+            'balik_awal_tanpa_sebab' => $backEarlyRecords, 
             'tidak_hadir_tanpa_sebab' => $absentCount,
         ];
     }
-    
+
 
     private function calculateBilCounts($userId, $roleId)
     {
@@ -521,7 +552,7 @@ class UserService
             ->where('trans_alasan.idpeg', '=', $userId)
             ->where('trans_alasan.jenisalasan_id', '=', 3) // Absence reason
             ->where('trans_alasan.is_deleted', '!=', 1);
-    
+
         // Main query for counting absent records
         $absentCount = DB::table('calendars')
             ->leftJoin('transit', function ($join) use ($userId) {
@@ -548,12 +579,12 @@ class UserService
                 'reasons_sub.statusabsent'
             )
             ->count(); // ✅ This will return only the count of absent records
-    
+
         return [
             'total_absent_count' => $absentCount // ✅ Returning only the count in an array
         ];
     }
-    
+
 
 
 }
