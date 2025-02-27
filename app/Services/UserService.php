@@ -193,7 +193,7 @@ class UserService
             ->exists();
 
         if (!$leaveExists) {
-            $remainingHours = 'Tiada Permohonan Keluar Pejabat Hari Ini';
+            $remainingHours = '--:--:--';
         } else {
             // Use raw query to get remaining hours
             $result = DB::select("
