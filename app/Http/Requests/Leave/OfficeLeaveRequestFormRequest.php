@@ -21,12 +21,13 @@ class OfficeLeaveRequestFormRequest extends FormRequest
             'tkh_mula' => 'required|date',
             'tkh_hingga' => 'required_if:jenis,1|date|nullable',
             'hari_timeoff' => 'required_if:jenis,2|string|nullable',
-            'masa_keluar' => 'required_if:jenis,2|date_format:H:i|nullable',
-            'masa_kembali' => 'required_if:jenis,2|date_format:H:i|nullable',
+            'masa_keluar' => ['required_if:jenis,2', 'regex:/^\d{2}:\d{2}$/', 'nullable'],
+            'masa_kembali' => ['required_if:jenis,2', 'regex:/^\d{2}:\d{2}$/', 'nullable'],
             'bilhari' => 'required_if:jenis,1|numeric|nullable',
             'catatan' => 'required|string|max:255',
         ];
     }
+    
 
     /**
      * Get custom messages for validation errors.
@@ -40,8 +41,11 @@ class OfficeLeaveRequestFormRequest extends FormRequest
             'hari_timeoff.required_if' => 'Hari diperlukan untuk Time-Off.',
             'masa_keluar.required_if' => 'Masa keluar diperlukan untuk Time-Off.',
             'masa_kembali.required_if' => 'Masa kembali diperlukan untuk Time-Off.',
+            'masa_keluar.regex' => 'The masa keluar field must match the format H:i (e.g., 08:30).',
+            'masa_kembali.regex' => 'The masa kembali field must match the format H:i (e.g., 17:00).',
             'bilhari.required_if' => 'Bilangan hari diperlukan untuk Bekerja Luar Pejabat.',
             'catatan.required' => 'Sebab diperlukan.',
         ];
     }
+    
 }
