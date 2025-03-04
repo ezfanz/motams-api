@@ -188,7 +188,7 @@ class UserService
         $leaveExists = DB::table('office_leave_requests')
             ->where('idpeg', $idpeg)
             ->whereDate('date_mula', now()->toDateString())
-            ->where('status', '13')
+            ->where('status', '16')
             ->where('is_deleted', 0)
             ->exists();
 
@@ -203,7 +203,7 @@ class UserService
             AND date_mula = ? 
             AND status = ? 
             AND is_deleted = ?
-        ", [$idpeg, now()->toDateString(), '13', 0]);
+        ", [$idpeg, now()->toDateString(), '16', 0]);
 
             // Extract value from query result
             $remainingHours = $result[0]->remaining_hours ?? null;
