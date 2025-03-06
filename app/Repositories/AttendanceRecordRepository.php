@@ -636,9 +636,9 @@ class AttendanceRecordRepository
     {
         $userId = $filters['user_id'];
         $roleId = $filters['role_id'];
-        $month = $filters['month'] ?? null;
-        $year = $filters['year'] ?? null;
         $status = $filters['status'] ?? null;
+        $months = is_array($filters['month']) ? $filters['month'] : [$filters['month']];
+        $year = $filters['year'] ?? null;
 
         $query = DB::table('trans_alasan')
             ->select(
@@ -663,22 +663,19 @@ class AttendanceRecordRepository
             $query->where('users.penyemak_id', $userId);
         }
 
-        // Status-based filtering
+        // Status filtering (optional)
         if (!empty($status)) {
             $query->where('trans_alasan.status', $status);
         }
 
-        // Month-year filtering
-        if (!empty($month) && !empty($year)) {
-            $firstDayOfMonth = Carbon::createFromDate($year, $month, 1)->startOfMonth()->toDateTimeString();
-            $lastDayOfMonth = Carbon::createFromDate($year, $month, 1)->endOfMonth()->toDateTimeString();
-            $query->whereBetween('trans_alasan.log_datetime', [$firstDayOfMonth, $lastDayOfMonth]);
+        // Month filtering for both previous and current months
+        if (!empty($year) && !empty($months)) {
+            $query->whereYear('trans_alasan.log_datetime', $year)
+                ->whereIn(DB::raw('MONTH(trans_alasan.log_datetime)'), $months);
         }
 
-        // Order by log date descending
         $query->orderBy('trans_alasan.log_datetime', 'DESC');
 
-        // Map the results for UI formatting
         return $query->get()->map(function ($record) {
             return [
                 'name' => $record->fullname,
@@ -693,6 +690,7 @@ class AttendanceRecordRepository
             ];
         })->toArray();
     }
+
 
     private function getReasonType(int $reasonTypeId)
     {

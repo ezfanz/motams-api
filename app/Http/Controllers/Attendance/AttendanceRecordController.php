@@ -137,14 +137,14 @@ class AttendanceRecordController extends Controller
             return ResponseHelper::error('Role not found for the authenticated user.', 400);
         }
 
-        // try {
+        try {
             $reviewCount = $this->attendanceRecordService->getReviewCount($userId, $roleId);
             return ResponseHelper::success(['review_count' => $reviewCount], 'Review count retrieved successfully');
-        // } catch (\InvalidArgumentException $e) {
-        //     return ResponseHelper::error($e->getMessage(), 400);
-        // } catch (\Exception $e) {
-        //     return ResponseHelper::error('Failed to retrieve review counts.', 500);
-        // }
+        } catch (\InvalidArgumentException $e) {
+            return ResponseHelper::error($e->getMessage(), 400);
+        } catch (\Exception $e) {
+            return ResponseHelper::error('Failed to retrieve review counts.', 500);
+        }
     }
 
 
@@ -165,14 +165,14 @@ class AttendanceRecordController extends Controller
             return ResponseHelper::error('Role not found for the authenticated user.', 400);
         }
 
-        // try {
+        try {
             $approvalCount = $this->attendanceRecordService->getApprovalCount($userId, $roleId);
             return ResponseHelper::success(['approval_count' => $approvalCount], 'Approval count retrieved successfully');
-        // } catch (\InvalidArgumentException $e) {
-        //     return ResponseHelper::error($e->getMessage(), 400);
-        // } catch (\Exception $e) {
-        //     return ResponseHelper::error('Failed to retrieve review counts.', 500);
-        // }
+        } catch (\InvalidArgumentException $e) {
+            return ResponseHelper::error($e->getMessage(), 400);
+        } catch (\Exception $e) {
+            return ResponseHelper::error('Failed to retrieve review counts.', 500);
+        }
     }
 
 

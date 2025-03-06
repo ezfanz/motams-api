@@ -122,6 +122,7 @@ Route::group(['prefix' => 'v1', 'middleware' => ['auth:api', 'throttle:global']]
      */
     Route::prefix('attendance-reviews')->group(function () {
         Route::get('/', [AttendanceReviewController::class, 'index'])->name('attendance-reviews.index');
+        Route::get('/individual', [AttendanceReviewController::class, 'individualReview'])->name('attendance-reviews.individual');
         Route::post('/batch-update', [AttendanceReviewController::class, 'batchUpdate'])->name('attendance-reviews.batch-update');
         Route::get('/monthly-status-summary', [AttendanceReviewController::class, 'getMonthlyStatusSummary'])->name('attendance-status-summary.index');
         Route::post('/process', [AttendanceReviewController::class, 'processReview'])->name('attendance-reviews.process');
