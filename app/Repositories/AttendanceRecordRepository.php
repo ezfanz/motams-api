@@ -416,19 +416,19 @@ class AttendanceRecordRepository
             return (array) $record;
         })->toArray();
     }
-    
+
 
 
     public function fetchEarlyLeaveRecords(int $userId, string $startDay, string $lastDay): array
     {
         // Get staff ID for the given user
         $idStaff = User::where('is_deleted', '!=', 1)->where('id', $userId)->value('staffid');
-    
+
         if (!$idStaff) {
             Log::error("Error: Staff ID not found for user ID: $userId");
             return [];
         }
-    
+
         // Query early leave records from lateinoutview
         $records = DB::table('lateinoutview AS l')
             ->select(
@@ -463,6 +463,17 @@ class AttendanceRecordRepository
                         AND ta.is_deleted = 0
                         LIMIT 1
                     ) AS statusearly
+                "),
+                DB::raw("
+                    (
+                        SELECT ta.catatan_peg
+                        FROM trans_alasan AS ta
+                        WHERE ta.log_datetime = l.datetimeout
+                        AND ta.idpeg = $userId
+                        AND ta.jenisalasan_id = 2
+                        AND ta.is_deleted = 0
+                        LIMIT 1
+                    ) AS catatan_peg
                 ")
             )
             ->where('l.staffid', $idStaff)
@@ -472,7 +483,7 @@ class AttendanceRecordRepository
             ->where('l.isholiday', 0)
             ->orderBy('l.trdate', 'ASC')
             ->get();
-    
+
         // Format results
         return $records->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->trdate));
@@ -480,7 +491,8 @@ class AttendanceRecordRepository
             return (array) $record;
         })->toArray();
     }
-    
+
+
 
 
     private function determineBoxColor($status = null)
