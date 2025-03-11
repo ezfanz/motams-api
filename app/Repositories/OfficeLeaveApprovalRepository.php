@@ -14,7 +14,7 @@ class OfficeLeaveApprovalRepository
     public function filterPendingApprovals(int $userId, int $roleId, array $filters)
     {
         $query = OfficeLeaveRequest::select(
-            'office_leave_requests.id',
+            'office_leave_requests.id AS leave_id',
             'users.fullname',
             'users.jawatan',
             'office_leave_requests.leave_type_id',
@@ -58,6 +58,7 @@ class OfficeLeaveApprovalRepository
         return $query->get()->map(function ($leaveRequest) {
             if ($leaveRequest->leave_type_id == 1) {
                 return [
+                    'leave_id' => $leaveRequest->leave_id,
                     'name' => $leaveRequest->fullname,
                     'position' => $leaveRequest->jawatan,
                     'type' => $leaveRequest->jenis_leave,
@@ -68,6 +69,7 @@ class OfficeLeaveApprovalRepository
                 ];
             } elseif ($leaveRequest->leave_type_id == 2) {
                 return [
+                    'leave_id' => $leaveRequest->leave_id,
                     'name' => $leaveRequest->fullname,
                     'position' => $leaveRequest->jawatan,
                     'type' => $leaveRequest->jenis_leave,

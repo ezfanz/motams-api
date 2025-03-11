@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Services\AttendanceRecordService;
 use App\Repositories\UserRepository;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\ApiResponseHelper;
@@ -31,12 +32,13 @@ use App\Models\Status;
 class UserService
 {
     protected $userRepository;
-
-    public function __construct(UserRepository $userRepository)
+    protected $attendanceRecordService;
+    public function __construct(UserRepository $userRepository, AttendanceRecordService $attendanceRecordService)
     {
         $this->userRepository = $userRepository;
+        $this->attendanceRecordService = $attendanceRecordService;
     }
-
+    
     public function registerUserWithRole(array $data): array
     {
         $user = $this->userRepository->create($data);
@@ -181,6 +183,8 @@ class UserService
             'status' => $transAlasan->status,
         ] : null;
 
+        $totalPendingReviews = $this->attendanceRecordService->getReviewCount($idpeg, $roleId);
+
         // Enable Query Logging
         DB::enableQueryLog();
 
@@ -271,7 +275,7 @@ class UserService
                 'attendance_summary' => $attendanceSummary,
                 'color_change_count' => $countColorsAll,
                 'total_leave_requests' => $tindakan_kelulusan_count,
-                'total_pending_reviews' => $bilsemakan,
+                'total_pending_reviews' => $totalPendingReviews,
                 'total_pending_approvals' => $bilpengesahan,
                 'trans_alasan' => $transAlasanDetails
             ]
