@@ -349,74 +349,95 @@ class AttendanceRecordRepository
         })->toArray();
     }
 
-
-
-    public function fetchAbsentRecords(int $userId, string $startDay, string $lastDay): array
+    public function fetchAbsentRecords(int $userId): array
     {
-        // Subquery to get absence reasons
-        $reasonSubquery = DB::table('trans_alasan')
-            ->join('alasan', 'trans_alasan.alasan_id', '=', 'alasan.id')
-            ->select(
-                'trans_alasan.log_datetime',
-                'alasan.diskripsi AS absentreasont',
-                'trans_alasan.status AS statusabsent'
-            )
-            ->where('trans_alasan.idpeg', '=', $userId)
-            ->where('trans_alasan.jenisalasan_id', '=', 3) // Reason type ID for absence
-            ->where('trans_alasan.is_deleted', '!=', 1);
-    
-        // Main query for calendars and absence details
-        $query = DB::table('calendars')
-            ->leftJoin('transit', function ($join) use ($userId) {
-                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
-                    ->where('transit.staffid', '=', $userId);
-            })
-            ->leftJoinSub($reasonSubquery, 'reasons_sub', function ($join) {
-                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(reasons_sub.log_datetime)'));
-            })
+        // Get the staff ID
+        $idStaff = User::where('is_deleted', '!=', 1)
+            ->where('id', $userId)
+            ->value('staffid');
+
+        if (!$idStaff) {
+            Log::error("Error: Staff ID not found for user ID: $userId");
+            return [];
+        }
+
+
+        $dayNow = Carbon::now()->format('d');
+        $firstDayOfCurrentMonth = Carbon::now()->startOfMonth()->toDateString();
+        $firstDayOfPreviousMonth = Carbon::now()->subMonthNoOverflow()->startOfMonth()->toDateString();
+        $startDay = $dayNow > 10 ? $firstDayOfCurrentMonth : $firstDayOfPreviousMonth;
+        $endDay = Carbon::now()->toDateString(); // Always today
+
+        // Main query for fetching absent records
+        $records = DB::table('calendars')
             ->select(
                 'calendars.fulldate',
-                DB::raw('YEAR(calendars.fulldate) AS year'),
-                DB::raw('MONTHNAME(calendars.fulldate) AS monthname'),
-                DB::raw('DAYNAME(calendars.fulldate) AS dayname'),
                 'calendars.isweekday',
                 'calendars.isholiday',
-                'transit.staffid',
                 DB::raw("$userId AS idpeg"),
-                'reasons_sub.absentreasont',
-                'reasons_sub.statusabsent'
+                DB::raw("(SELECT transit.staffid 
+                      FROM transit 
+                      WHERE transit.staffid = $idStaff
+                      LIMIT 1
+            ) AS staffid"),
+                DB::raw("(SELECT alasan.diskripsi 
+                          FROM trans_alasan 
+                          LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
+                          WHERE DATE(trans_alasan.log_datetime) = DATE(calendars.fulldate)
+                          AND trans_alasan.idpeg = $userId
+                          AND trans_alasan.jenisalasan_id = 3
+                          AND trans_alasan.is_deleted = 0
+                          LIMIT 1
+                ) AS absentreasont"),
+                DB::raw("(SELECT trans_alasan.status 
+                          FROM trans_alasan 
+                          WHERE DATE(trans_alasan.log_datetime) = DATE(calendars.fulldate)
+                          AND trans_alasan.idpeg = $userId
+                          AND trans_alasan.jenisalasan_id = 3
+                          AND trans_alasan.is_deleted = 0
+                          LIMIT 1
+                ) AS statusabsent"),
+                DB::raw("(SELECT trans_alasan.catatan_peg
+                          FROM trans_alasan 
+                          WHERE DATE(trans_alasan.log_datetime) = DATE(calendars.fulldate)
+                          AND trans_alasan.idpeg = $userId
+                          AND trans_alasan.jenisalasan_id = 3
+                          AND trans_alasan.is_deleted = 0
+                          LIMIT 1
+                ) AS catatan_peg"),
+                DB::raw('DAYNAME(calendars.fulldate) AS dayname')
             )
-            ->whereBetween('calendars.fulldate', [$startDay, $lastDay])
-            ->where('calendars.isweekday', 1)  // Ensure it's a working day
-            ->where('calendars.isholiday', 0)  // Ensure it's not a holiday
-            ->where(function ($query) {
-                $query->whereNull('transit.trdatetime')  // No check-in/out
-                      ->orWhereNotNull('reasons_sub.absentreasont'); // Absence reason exists
-            })
-            ->whereNotNull('reasons_sub.absentreasont')  // Ensure only valid absences are included
-            ->groupBy(
-                'calendars.fulldate',
-                'calendars.isweekday',
-                'calendars.isholiday',
-                'transit.staffid',
-                'reasons_sub.absentreasont',
-                'reasons_sub.statusabsent'
-            )
-            ->orderBy('calendars.fulldate', 'ASC');
-    
-        // Debug Query
-        \Log::info("Absent Records Query", ['sql' => $query->toSql(), 'bindings' => $query->getBindings()]);
-    
-        // Fetch records
-        $records = $query->get();
-    
+            ->whereBetween('calendars.fulldate', [$startDay, $endDay]) // Apply date range
+            ->where('calendars.isweekday', 1) // Only working days
+            ->where('calendars.isholiday', 0) // Not a holiday
+            ->whereNotExists(function ($query) use ($idStaff) {
+                $query->select(DB::raw(1))
+                    ->from('transit')
+                    ->whereRaw('DATE(transit.trdate) = DATE(calendars.fulldate)')
+                    ->where('transit.staffid', '=', $idStaff);
+            }) // Ensure NO transit records exist
+            ->orderBy('calendars.fulldate', 'ASC')
+            ->get();
+
+        // Format response
         return $records->map(function ($record) {
-            $record->date_display = date('d/m/Y', strtotime($record->fulldate));
-            $record->box_color = $this->determineBoxColor($record->statusabsent);
-            return (array) $record;
+            return [
+                'staffid' => $record->staffid ?? null,
+                'day' => $record->dayname,
+                'trdate' => $record->fulldate,
+                'isweekday' => $record->isweekday,
+                'isholiday' => $record->isholiday,
+                'datetimeout' => null,
+                'timeout' => null,
+                'idpeg' => $record->idpeg,
+                'earlyreason' => $record->absentreasont ?? null,
+                'statusearly' => $record->statusabsent ?? null,
+                'catatan_peg' => $record->catatan_peg ?? null, // Dynamically fetched field
+                'date_display' => date('d/m/Y', strtotime($record->fulldate)),
+                'box_color' => $this->determineBoxColor($record->statusabsent),
+            ];
         })->toArray();
     }
-
 
 
     public function fetchEarlyLeaveRecords(int $userId, string $startDay, string $lastDay): array

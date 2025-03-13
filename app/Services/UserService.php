@@ -304,9 +304,9 @@ class UserService
 
     public function getAttendanceSummary($idstaff, $idpeg)
     {
-        $startDate = now()->startOfYear()->toDateString();
-        $endDate = now()->endOfYear()->toDateString();
-
+        $startDate = now()->startOfMonth()->toDateString(); // Ensure start from the beginning of the month
+        $endDate = now()->toDateString(); // End date should be today
+    
         // Query for lateness & early out
         $calendarRecords = Calendar::select(
             'calendars.fulldate',
@@ -320,40 +320,32 @@ class UserService
                     AND TIME(MIN(transit.trdatetime)) >= '09:01:00' THEN 1 
                     ELSE 0 
                 END AS latein
-            "),
-            DB::raw("
-                CASE 
-                    WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 
-                    AND TIME(MAX(transit.trdatetime)) <= '16:30:00' THEN 1 
-                    ELSE 0 
-                END AS earlyout
             ")
         )
             ->leftJoin('transit', function ($join) use ($idstaff) {
                 $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
                     ->where('transit.staffid', $idstaff);
             })
-            ->whereBetween('calendars.fulldate', [$startDate, $endDate])
+            ->whereBetween('calendars.fulldate', [$startDate, $endDate]) // Only fetch for this month
             ->groupBy('calendars.fulldate', 'calendars.isweekday', 'calendars.isholiday')
             ->get();
-
-        // Fetch back-early records
-        $backEarlyRecords = DB::table('lateinoutview')
+    
+        // Fetch early out records
+        $earlyOutCount = DB::table('lateinoutview')
             ->where('staffid', $idstaff)
             ->whereBetween('trdate', [$startDate, $endDate])
             ->where('earlyout', 1)
             ->where('isweekday', 1)
             ->where('isholiday', 0)
             ->count();
-
-        // Fetch absence records
+    
+        // Fetch absence records count
         $absentRecords = $this->fetchAbsentRecordsCount($idpeg, $startDate, $endDate);
         $absentCount = $absentRecords['total_absent_count'];
-
+    
         // Initialize counters
         $lateCount = 0;
-        $earlyOutCount = 0;
-
+    
         foreach ($calendarRecords as $record) {
             if ($record->isweekday && !$record->isholiday) {
                 if ($record->latein == 1) {
@@ -361,14 +353,14 @@ class UserService
                 }
             }
         }
-
+    
         return [
             'lewat_tanpa_sebab' => $lateCount,
-            'balik_awal_tanpa_sebab' => $backEarlyRecords, 
-            'tidak_hadir_tanpa_sebab' => $absentCount,
+            'balik_awal_tanpa_sebab' => $earlyOutCount,
+            'tidak_hadir_tanpa_sebab' => $absentCount, // Now correctly fetched
         ];
     }
-
+    
 
     private function calculateBilCounts($userId, $roleId)
     {
@@ -543,51 +535,35 @@ class UserService
         }
     }
 
-    private function fetchAbsentRecordsCount(int $userId, string $startDay, string $lastDay): array
+    public function fetchAbsentRecordsCount(int $userId, string $startDay, string $endDay): array
     {
-        // Subquery to get absence reasons
-        $reasonSubquery = DB::table('trans_alasan')
-            ->join('alasan', 'trans_alasan.alasan_id', '=', 'alasan.id')
-            ->select(
-                'trans_alasan.log_datetime',
-                'alasan.diskripsi AS absentreasont',
-                'trans_alasan.status AS statusabsent'
-            )
-            ->where('trans_alasan.idpeg', '=', $userId)
-            ->where('trans_alasan.jenisalasan_id', '=', 3) // Absence reason
-            ->where('trans_alasan.is_deleted', '!=', 1);
-
-        // Main query for counting absent records
-        $absentCount = DB::table('calendars')
-            ->leftJoin('transit', function ($join) use ($userId) {
-                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
-                    ->where('transit.staffid', '=', $userId)
-                    ->whereNull('transit.trdatetime'); // Null trdatetime indicates absence
-            })
-            ->leftJoinSub($reasonSubquery, 'reasons_sub', function ($join) {
-                $join->on('calendars.fulldate', '=', 'reasons_sub.log_datetime');
-            })
-            ->whereBetween('calendars.fulldate', [$startDay, $lastDay])
-            ->where('calendars.isweekday', 1)
-            ->where('calendars.isholiday', 0)
-            ->where(function ($query) {
-                $query->whereNotNull('transit.trdatetime') // Transit data exists
-                    ->orWhereNotNull('reasons_sub.absentreasont'); // Absence reason exists
-            })
-            ->groupBy(
-                'calendars.fulldate',
-                'calendars.isweekday',
-                'calendars.isholiday',
-                'transit.staffid',
-                'reasons_sub.absentreasont',
-                'reasons_sub.statusabsent'
-            )
-            ->count(); // ✅ This will return only the count of absent records
-
-        return [
-            'total_absent_count' => $absentCount // ✅ Returning only the count in an array
-        ];
+        // Get staff ID
+        $idStaff = User::where('is_deleted', '!=', 1)
+            ->where('id', $userId)
+            ->value('staffid');
+    
+        if (!$idStaff) {
+            Log::error("Error: Staff ID not found for user ID: $userId");
+            return ['total_absent_count' => 0];
+        }
+    
+        // Count days where the user was absent (No transit record on working days)
+        $totalAbsent = DB::table('calendars')
+            ->whereBetween('calendars.fulldate', [$startDay, $endDay]) // From start of month until today
+            ->where('calendars.isweekday', 1) // Only working days
+            ->where('calendars.isholiday', 0) // Not a holiday
+            ->whereNotExists(function ($query) use ($idStaff) {
+                $query->select(DB::raw(1))
+                      ->from('transit')
+                      ->whereRaw('DATE(transit.trdate) = DATE(calendars.fulldate)')
+                      ->where('transit.staffid', '=', $idStaff);
+            }) // Ensure NO transit records exist for that day
+            ->count(); // Get the count of such days
+    
+        return ['total_absent_count' => $totalAbsent];
     }
+    
+    
 
 
 
