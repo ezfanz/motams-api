@@ -27,15 +27,16 @@ class OfficeLeaveRequestRequest extends FormRequest
                 'required',
                 'exists:leave_types,id'
             ],
-            'date' => [
+            'date_mula' => [
                 'required',
-                'date',
-                'after_or_equal:today'  // Ensures leave date is not in the past
+                'after_or_equal:today' 
+            ],
+            'date_tamat' => [
+                'required',
+                'after_or_equal:today' 
             ],
             'day' => [
                 'required',
-                'string',
-                Rule::in(['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']) // Restrict to valid day names
             ],
             'start_time' => [
                 'required',
@@ -53,8 +54,8 @@ class OfficeLeaveRequestRequest extends FormRequest
             ],
             'status' => [
                 'nullable',
-                'string',
-                Rule::in(['Pending', 'Approved', 'Rejected']) // Restrict to valid statuses
+                'integer',
+                Rule::in([1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17]) // Restrict to valid statuses
             ]
         ];
     }
@@ -80,7 +81,7 @@ class OfficeLeaveRequestRequest extends FormRequest
             'end_time.date_format' => 'The end time must be in the format HH:MM.',
             'end_time.after' => 'The end time must be after the start time.',
             'reason.max' => 'The reason cannot exceed 255 characters.',
-            'status.in' => 'The status must be either Pending, Approved, or Rejected.'
+            'status.in' => 'The status must be follow status table.'
         ];
     }
 }
