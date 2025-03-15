@@ -332,7 +332,7 @@ class UserService
     
         // Fetch early out records
         $earlyOutCount = DB::table('lateinoutview')
-            ->where('staffid', $idstaff)
+            ->whereRaw("CAST(staffid AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = ?", [$idstaff])
             ->whereBetween('trdate', [$startDate, $endDate])
             ->where('earlyout', 1)
             ->where('isweekday', 1)
