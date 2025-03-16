@@ -23,21 +23,26 @@ class AttendanceActionRepository
     public function createRecord(array $data, int $jenisAlasanId)
     {
         $logDatetime = $data['datetimein'] ?? $data['datetimeout'] ?? $data['fulldate'] ?? null;
-
+    
         if (!$logDatetime) {
             throw new \InvalidArgumentException('Missing log datetime for the record.');
         }
-
-        TransAlasan::create([
-            'idpeg' => $data['idpeg'],
-            'log_datetime' => $logDatetime,
-            'alasan_id' => $data['statalasan'],
-            'jenisalasan_id' => $jenisAlasanId,
-            'catatan_peg' => $data['catatanpeg'],
-            'status' => 1, // Pending Adjustment
-            'id_pencipta' => auth()->id(),
-            'tkh_peg_alasan' => Carbon::now(),
-        ]);
+    
+        return TransAlasan::updateOrCreate(
+            [
+                'idpeg' => $data['idpeg'],
+                'log_datetime' => $logDatetime,
+                'jenisalasan_id' => $jenisAlasanId, // Ensure unique constraint
+            ],
+            [
+                'alasan_id' => $data['statalasan'],
+                'catatan_peg' => $data['catatanpeg'],
+                'status' => 1, // Pending Adjustment
+                'id_pencipta' => auth()->id(),
+                'tkh_peg_alasan' => Carbon::now(),
+                'updated_at' => now()
+            ]
+        );
     }
 
     public function updateRecord(array $data, int $jenisAlasanId)
@@ -45,16 +50,19 @@ class AttendanceActionRepository
         $trans = TransAlasan::find($data['transid']);
     
         if (!$trans) {
-            throw new \Exception('Transaction ID not found.');
+            Log::error('Transaction ID not found.', ['transid' => $data['transid']]);
+            return false;
         }
     
-        $trans->update([
+        return $trans->update([
             'alasan_id' => $data['statalasan'],
             'catatan_peg' => $data['catatanpeg'],
             'status' => 1, // Pending Adjustment
             'id_pencipta' => auth()->id(),
             'tkh_peg_alasan' => Carbon::now(),
+            'updated_at' => now()
         ]);
     }
+    
     
 }

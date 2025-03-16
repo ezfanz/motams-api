@@ -17,110 +17,95 @@ class AttendanceActionService
 
     public function handleEarlyDeparture(array $data)
     {
-        // Check if a transaction exists
+        // Check if a transaction already exists
         $statusDetails = $this->attendanceActionRepository->getAttendanceStatus(
             $data['idpeg'],
             $data['datetimeout'],
             2 // Early Departure jenisalasan_id
         );
-    
+
         $boxColor = $this->getBoxColor($statusDetails['status_code'] ?? null);
-    
-        // If updating an existing record (transid exists)
-        if (!empty($data['transid'])) {
-            $existingRecord = TransAlasan::find($data['transid']);
-    
-            if (!$existingRecord) {
-                return $this->response('Transaction ID not found.', '#dc3545', 404);
-            }
-    
-            switch ($existingRecord->status) {
-                case 4: // Green (Approved)
-                    return $this->response('Approved record. No changes allowed.', $boxColor, 200);
-                case 2: // Blue (Pending Verification)
-                    return $this->response('Pending verification. Cannot edit.', $boxColor, 200);
-                case 1: // Yellow (Pending Adjustment)
-                case 3: // Yellow (Needs Correction)
-                case 5: // Yellow
-                    $this->attendanceActionRepository->updateRecord($data, 2);
-                    return $this->response('Record updated successfully.', $boxColor, 200);
-                default:
-                    return $this->response('Unhandled status.', $boxColor, 400);
-            }
+
+        // Check if record already exists
+        $existingRecord = TransAlasan::where('idpeg', $data['idpeg'])
+            ->where('log_datetime', $data['datetimeout']) // Ensure correct date
+            ->where('jenisalasan_id', 2) // Early Departure
+            ->where('is_deleted', 0)
+            ->first();
+
+        if ($existingRecord) {
+            // **Instead of returning error, update the record**
+            $this->attendanceActionRepository->updateRecord([
+                'transid' => $existingRecord->id, // Pass existing transid
+                'statalasan' => $data['statalasan'],
+                'catatanpeg' => $data['catatanpeg'],
+            ], 2);
+
+            return $this->response('Record updated successfully.', $boxColor, 200);
         }
-    
+
         // If no existing record, create a new one
         $this->attendanceActionRepository->createRecord($data, 2);
         return $this->response('New record created successfully.', $boxColor, 201);
     }
 
+
+
     public function handleLateArrival(array $data)
     {
-        $statusDetails = $this->attendanceActionRepository->getAttendanceStatus(
-            $data['idpeg'],
-            $data['datetimein'],
-            1 // Late Arrival jenisalasan_id
-        );
-
-        $boxColor = $this->getBoxColor($statusDetails['status_code'] ?? null);
-
-        if ($statusDetails) {
-            switch ($statusDetails['status_code']) {
-                case 4: // Green (Approved)
-                    return $this->response('Approved record. No changes allowed.', $boxColor, 200);
-
-                case 2: // Blue (Pending Verification)
-                    return $this->response('Pending verification. Cannot edit.', $boxColor, 200);
-
-                case 1: // Yellow (Pending Adjustment)
-                case 3: // Yellow (Needs Correction)
-                case 5: // Yellow
-                    $this->attendanceActionRepository->updateRecord($data, 1);
-                    return $this->response('Record updated successfully.', $boxColor, 200);
-
-                default:
-                    return $this->response('Unhandled status.', $boxColor, 400);
-            }
+        // Check if a transaction already exists
+        $existingRecord = TransAlasan::where('idpeg', $data['idpeg'])
+            ->where('log_datetime', $data['datetimein']) // Ensure correct date
+            ->where('jenisalasan_id', 1) // Late Arrival jenisalasan_id
+            ->where('is_deleted', 0)
+            ->first();
+    
+        $boxColor = $this->getBoxColor($existingRecord->status ?? null);
+    
+        if ($existingRecord) {
+            // **Instead of returning an error, update the existing record**
+            $this->attendanceActionRepository->updateRecord([
+                'transid' => $existingRecord->id, // Use existing transid
+                'statalasan' => $data['statalasan'],
+                'catatanpeg' => $data['catatanpeg'],
+            ], 1);
+    
+            return $this->response('Late arrival record updated successfully.', $boxColor, 200);
         }
-
-        // Create new record if no status found
+    
+        // If no existing record, create a new one
         $this->attendanceActionRepository->createRecord($data, 1);
-        return $this->response('New record created successfully.', $boxColor, 201);
+        return $this->response('New late arrival record created successfully.', $boxColor, 201);
     }
+    
 
     public function handleAbsent(array $data)
     {
-        $statusDetails = $this->attendanceActionRepository->getAttendanceStatus(
-            $data['idpeg'],
-            $data['fulldate'],
-            3 // jenisalasan_id for "Tidak Hadir"
-        );
-
-        $boxColor = $this->getBoxColor($statusDetails['status_code'] ?? null);
-
-        if ($statusDetails) {
-            switch ($statusDetails['status_code']) {
-                case 4: // Green (Approved)
-                    return $this->response('Approved record. No changes allowed.', $boxColor, 200);
-
-                case 2: // Blue (Pending Verification)
-                    return $this->response('Pending verification. Cannot edit.', $boxColor, 200);
-
-                case 1: // Yellow (Pending Adjustment)
-                case 3: // Yellow (Needs Correction)
-                case 5: // Yellow
-                    $this->attendanceActionRepository->updateRecord($data, 3);
-                    return $this->response('Record updated successfully.', $boxColor, 200);
-
-                default:
-                    return $this->response('Unhandled status.', $boxColor, 400);
-            }
+        // Check if a transaction already exists
+        $existingRecord = TransAlasan::where('idpeg', $data['idpeg'])
+            ->where('log_datetime', $data['fulldate']) // Ensure correct date
+            ->where('jenisalasan_id', 3) // Tidak Hadir (Absent)
+            ->where('is_deleted', 0)
+            ->first();
+    
+        $boxColor = $this->getBoxColor($existingRecord->status ?? null);
+    
+        if ($existingRecord) {
+            // **Instead of returning an error, update the existing record**
+            $this->attendanceActionRepository->updateRecord([
+                'transid' => $existingRecord->id, // Use existing transid
+                'statalasan' => $data['statalasan'],
+                'catatanpeg' => $data['catatanpeg'],
+            ], 3);
+    
+            return $this->response('Absent record updated successfully.', $boxColor, 200);
         }
-
-        // Create new record if no status found
+    
+        // If no existing record, create a new one
         $this->attendanceActionRepository->createRecord($data, 3);
-        return $this->response('New record created successfully.', $boxColor, 201);
+        return $this->response('New absent record created successfully.', $boxColor, 201);
     }
+    
 
 
     private function getBoxColor(?int $statusCode)

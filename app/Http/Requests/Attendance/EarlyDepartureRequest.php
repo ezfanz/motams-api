@@ -24,7 +24,6 @@ class EarlyDepartureRequest extends FormRequest
             'datetimeout' => 'required|date',
             'statalasan' => 'required_if:statusearly,1|required_if:statusearly,3|integer|exists:alasan,id',
             'catatanpeg' => 'required_if:statusearly,1|required_if:statusearly,3|string|max:255',
-            'statusearly' => 'nullable|integer|in:1,2,3,4,5'
         ];
     }
 
@@ -42,7 +41,6 @@ class EarlyDepartureRequest extends FormRequest
             'statalasan.exists' => 'The selected reason does not exist.',
             'catatanpeg.required_if' => 'Remarks are required for this action.',
             'catatanpeg.max' => 'Remarks may not exceed 255 characters.',
-            'statusearly.in' => 'The status code is invalid.'
         ];
     }
 

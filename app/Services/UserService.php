@@ -547,24 +547,35 @@ class UserService
             return ['total_absent_count' => 0];
         }
     
+        $today = now()->toDateString();
+        $yesterday = now()->subDay()->toDateString();
+    
+        // Check if there is transit data for today
+        $hasTodayTransit = DB::table('transit')
+            ->whereRaw('DATE(transit.trdate) = ?', [$today])
+            ->where('transit.staffid', '=', $idStaff)
+            ->exists();
+    
+        if ($hasTodayTransit) {
+            // If today has transit records, exclude today from absent count
+            $endDay = $yesterday;
+        }
+    
         // Count days where the user was absent (No transit record on working days)
         $totalAbsent = DB::table('calendars')
-            ->whereBetween('calendars.fulldate', [$startDay, $endDay]) // From start of month until today
+            ->whereBetween('calendars.fulldate', [$startDay, $endDay]) // From start of month until endDay (yesterday if today exists)
             ->where('calendars.isweekday', 1) // Only working days
             ->where('calendars.isholiday', 0) // Not a holiday
             ->whereNotExists(function ($query) use ($idStaff) {
                 $query->select(DB::raw(1))
-                      ->from('transit')
-                      ->whereRaw('DATE(transit.trdate) = DATE(calendars.fulldate)')
-                      ->where('transit.staffid', '=', $idStaff);
+                    ->from('transit')
+                    ->whereRaw('DATE(transit.trdate) = DATE(calendars.fulldate)')
+                    ->where('transit.staffid', '=', $idStaff);
             }) // Ensure NO transit records exist for that day
             ->count(); // Get the count of such days
     
         return ['total_absent_count' => $totalAbsent];
     }
     
-    
-
-
 
 }
