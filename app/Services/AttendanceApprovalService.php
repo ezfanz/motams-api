@@ -77,5 +77,10 @@ class AttendanceApprovalService
 
         return ['status' => true, 'message' => $message];
     }
+
+    public function getAttendanceRecordsForApproval(array $filters)
+    {
+        return $this->repository->getFilteredRecords($filters);
+    }
     
 }

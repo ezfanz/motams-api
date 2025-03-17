@@ -8,6 +8,7 @@ use App\Services\AttendanceApprovalService;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\ResponseHelper;
 use App\Http\Requests\Attendance\BatchProcessAttendanceApprovalRequest;
+use Carbon\Carbon;
 
 class AttendanceApprovalController extends Controller
 {
@@ -42,6 +43,45 @@ class AttendanceApprovalController extends Controller
         }
 
         return response()->json(['status' => 'error', 'message' => $result['message']], 400);
+    }
+
+    public function individualReview(Request $request)
+    {
+        
+        $userId = Auth::id();
+        $roleId = Auth::user()->role_id;
+
+        // Get today's date
+        $dayNow = Carbon::now()->format('d');
+        $currentMonth = Carbon::now()->format('m');
+        $currentYear = Carbon::now()->format('Y');
+        $previousMonth = Carbon::now()->subMonth()->format('m');
+
+        // Apply the same review count logic to determine the date range
+        if ($dayNow > 10) {
+            $filters = [
+                'user_id' => $userId,
+                'role_id' => $roleId,
+                'month' => $currentMonth,
+                'year' => $currentYear,
+            ];
+        } else {
+            $filters = [
+                'user_id' => $userId,
+                'role_id' => $roleId,
+                'month' => [$previousMonth, $currentMonth], // Fetch for both months
+                'year' => $currentYear,
+            ];
+        }
+
+        // Fetch attendance records for the user
+        $attendanceRecords = $this->service->getAttendanceRecordsForApproval($filters);
+
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Auto-fetched attendance approval records retrieved successfully.',
+            'data' => $attendanceRecords,
+        ]);
     }
 
 }

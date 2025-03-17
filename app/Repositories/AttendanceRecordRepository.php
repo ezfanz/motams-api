@@ -662,6 +662,18 @@ class AttendanceRecordRepository
         $months = is_array($filters['month']) ? $filters['month'] : [$filters['month']];
         $year = $filters['year'] ?? null;
 
+        // Get start and last day of the current month
+        $monthnow = Carbon::now()->format('Y-m');
+        $datenow = Carbon::now()->format('Y-m-d');
+        $daynow = Carbon::now()->format('d');
+        
+        $firstDayofCurrentMonth = Carbon::now()->startOfMonth()->toDateTimeString();
+        $firstDayofPreviousMonth = Carbon::now()->subMonthNoOverflow()->startOfMonth()->toDateTimeString();
+        $lastDayofCurrentMonth = Carbon::now()->endOfMonth()->toDateTimeString();
+        
+        $startDay = $daynow > 10 ? $firstDayofCurrentMonth : $firstDayofPreviousMonth;
+        
+
         $query = DB::table('trans_alasan')
             ->select(
                 'trans_alasan.id AS tralasan_id',
@@ -678,7 +690,9 @@ class AttendanceRecordRepository
             ->leftJoin('users', 'trans_alasan.idpeg', '=', 'users.id')
             ->leftJoin('alasan', 'trans_alasan.alasan_id', '=', 'alasan.id')
             ->leftJoin('jenis_alasan', 'trans_alasan.jenisalasan_id', '=', 'jenis_alasan.id')
-            ->where('trans_alasan.is_deleted', '!=', 1);
+            ->where('trans_alasan.is_deleted', '!=', 1)
+            ->where('trans_alasan.status', Status::MENUNGGU_SEMAKAN) // Filter by status = 1
+        ->whereBetween('trans_alasan.log_datetime', [$startDay, $lastDayofCurrentMonth]); // Filter by date range
 
         // Role-based filtering
         if ($roleId != 3) { // Non-admin roles
