@@ -355,19 +355,29 @@ class AttendanceRecordRepository
         $idStaff = User::where('is_deleted', '!=', 1)
             ->where('id', $userId)
             ->value('staffid');
-
+    
         if (!$idStaff) {
             Log::error("Error: Staff ID not found for user ID: $userId");
             return [];
         }
-
-
+    
+        // Get date values
         $dayNow = Carbon::now()->format('d');
         $firstDayOfCurrentMonth = Carbon::now()->startOfMonth()->toDateString();
         $firstDayOfPreviousMonth = Carbon::now()->subMonthNoOverflow()->startOfMonth()->toDateString();
         $startDay = $dayNow > 10 ? $firstDayOfCurrentMonth : $firstDayOfPreviousMonth;
-        $endDay = Carbon::now()->toDateString(); // Always today
-
+        $today = Carbon::now()->toDateString();
+        $yesterday = Carbon::yesterday()->toDateString();
+    
+        // Check if there is attendance for today
+        $hasTodayRecord = DB::table('transit')
+            ->whereDate('trdate', $today)
+            ->where('staffid', $idStaff)
+            ->exists();
+    
+        // Ensure today is excluded from the query
+        $endDay = $yesterday; // Always use yesterday to exclude today
+    
         // Main query for fetching absent records
         $records = DB::table('calendars')
             ->select(
@@ -376,10 +386,10 @@ class AttendanceRecordRepository
                 'calendars.isholiday',
                 DB::raw("$userId AS idpeg"),
                 DB::raw("(SELECT transit.staffid 
-                      FROM transit 
-                      WHERE transit.staffid = $idStaff
-                      LIMIT 1
-            ) AS staffid"),
+                          FROM transit 
+                          WHERE transit.staffid = $idStaff
+                          LIMIT 1
+                ) AS staffid"),
                 DB::raw("(SELECT alasan.diskripsi 
                           FROM trans_alasan 
                           LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
@@ -407,7 +417,7 @@ class AttendanceRecordRepository
                 ) AS catatan_peg"),
                 DB::raw('DAYNAME(calendars.fulldate) AS dayname')
             )
-            ->whereBetween('calendars.fulldate', [$startDay, $endDay]) // Apply date range
+            ->whereBetween('calendars.fulldate', [$startDay, $endDay]) // Use dynamic end date
             ->where('calendars.isweekday', 1) // Only working days
             ->where('calendars.isholiday', 0) // Not a holiday
             ->whereNotExists(function ($query) use ($idStaff) {
@@ -418,7 +428,7 @@ class AttendanceRecordRepository
             }) // Ensure NO transit records exist
             ->orderBy('calendars.fulldate', 'ASC')
             ->get();
-
+    
         // Format response
         return $records->map(function ($record) {
             return [
@@ -438,6 +448,7 @@ class AttendanceRecordRepository
             ];
         })->toArray();
     }
+    
 
 
     public function fetchEarlyLeaveRecords(int $userId, string $startDay, string $lastDay): array

@@ -304,8 +304,8 @@ class UserService
 
     public function getAttendanceSummary($idstaff, $idpeg)
     {
-        $startDate = now()->startOfMonth()->toDateString(); // Ensure start from the beginning of the month
-        $endDate = now()->toDateString(); // End date should be today
+        $startDate = now()->startOfMonth()->toDateString(); // Start from beginning of the month
+        $yesterday = Carbon::yesterday()->toDateString(); // Exclude today's date
     
         // Query for lateness & early out
         $calendarRecords = Calendar::select(
@@ -314,36 +314,36 @@ class UserService
             'calendars.isholiday',
             DB::raw("MIN(transit.trdatetime) AS datetimein"),
             DB::raw("MAX(transit.trdatetime) AS datetimeout"),
-            DB::raw("
-                CASE 
-                    WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 
-                    AND TIME(MIN(transit.trdatetime)) >= '09:01:00' THEN 1 
-                    ELSE 0 
-                END AS latein
-            ")
+            DB::raw("CASE 
+                        WHEN calendars.isweekday = 1 
+                        AND calendars.isholiday = 0 
+                        AND TIME(MIN(transit.trdatetime)) >= '09:01:00' 
+                        THEN 1 
+                        ELSE 0 
+                     END AS latein")
         )
             ->leftJoin('transit', function ($join) use ($idstaff) {
                 $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
                     ->where('transit.staffid', $idstaff);
             })
-            ->whereBetween('calendars.fulldate', [$startDate, $endDate]) // Only fetch for this month
+            ->whereBetween('calendars.fulldate', [$startDate, $yesterday]) // Only fetch for this month excluding today
             ->groupBy('calendars.fulldate', 'calendars.isweekday', 'calendars.isholiday')
             ->get();
     
-        // Fetch early out records
+        // Fetch early out records (excluding today)
         $earlyOutCount = DB::table('lateinoutview')
             ->whereRaw("CAST(staffid AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = ?", [$idstaff])
-            ->whereBetween('trdate', [$startDate, $endDate])
+            ->whereBetween('trdate', [$startDate, $yesterday]) // Exclude today
             ->where('earlyout', 1)
             ->where('isweekday', 1)
             ->where('isholiday', 0)
             ->count();
     
-        // Fetch absence records count
-        $absentRecords = $this->fetchAbsentRecordsCount($idpeg, $startDate, $endDate);
+        // Fetch absence records count (excluding today)
+        $absentRecords = $this->fetchAbsentRecordsCount($idpeg, $startDate, $yesterday);
         $absentCount = $absentRecords['total_absent_count'];
     
-        // Initialize counters
+        // Initialize lateness counter
         $lateCount = 0;
     
         foreach ($calendarRecords as $record) {
@@ -355,11 +355,12 @@ class UserService
         }
     
         return [
-            'lewat_tanpa_sebab' => $lateCount,
-            'balik_awal_tanpa_sebab' => $earlyOutCount,
-            'tidak_hadir_tanpa_sebab' => $absentCount, // Now correctly fetched
+            'lewat_tanpa_sebab' => $lateCount, // Excluding today
+            'balik_awal_tanpa_sebab' => $earlyOutCount, // Excluding today
+            'tidak_hadir_tanpa_sebab' => $absentCount, // Excluding today
         ];
     }
+    
     
 
     private function calculateBilCounts($userId, $roleId)
