@@ -22,9 +22,9 @@ class ProcessAttendanceReviewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'review_id' => 'required|integer|exists:trans_alasan,id',
-            'status' => 'required|integer|in:2,3,6',
-            'notes' => 'nullable|string|max:255',
+            'tralasan_id' => 'required|integer|exists:trans_alasan,id',
+            'status_penyemak' => 'required|integer|in:2,3,6',
+            'catatan_penyemak' => 'nullable|string|max:255',
         ];
     }
 
@@ -36,9 +36,9 @@ class ProcessAttendanceReviewRequest extends FormRequest
     public function messages()
     {
         return [
-            'review_id.required' => 'The review ID is required.',
-            'review_id.integer' => 'The review ID must be an integer.',
-            'review_id.exists' => 'The selected review ID is invalid.',
+            'tralasan_id.required' => 'The tralasan_id is required.',
+            'tralasan_id.integer' => 'The tralasan_id must be an integer.',
+            'tralasan_id.exists' => 'The selected tralasan_id is invalid.',
             'status.required' => 'The status is required.',
             'status.integer' => 'The status must be an integer.',
             'status.in' => 'The status must be one of the following values: 2, 3, 6.',

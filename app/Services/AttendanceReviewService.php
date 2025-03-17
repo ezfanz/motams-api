@@ -72,7 +72,7 @@ class AttendanceReviewService
      */
     public function processReview(array $data, int $userId): array
     {
-        $transaction = $this->reasonTransactionRepository->findById($data['review_id']);
+        $transaction = $this->reasonTransactionRepository->findById($data['tralasan_id']);
 
         if (!$transaction) {
             return ['status' => false, 'message' => 'Transaction not found.'];
@@ -85,10 +85,10 @@ class AttendanceReviewService
             $transaction->id,
             [
                 'penyemak_id' => $userId,
-                'status_penyemak' => $data['status'],
-                'catatan_penyemak' => $data['notes'] ?? null,
+                'status_penyemak' => $data['status_penyemak'],
+                'catatan_penyemak' => $data['catatan_penyemak'] ?? null,
                 'tkh_penyemak_semak' => $currentTimestamp,
-                'status' => $data['status'],
+                'status' => $data['status_penyemak'],
             ]
         );
 
@@ -97,16 +97,16 @@ class AttendanceReviewService
         }
 
         // Handle status-based logic
-        switch ($data['status']) {
+        switch ($data['status_penyemak']) {
             case 2:
-                $message = 'Transaction sent to approver.';
+                $message = 'Proses kemaskini rekod berjaya dan telah dihantar ke Pegawai Pengesah untuk pengesahan';
                 break;
             case 3:
-                $message = 'Transaction marked as not verified.';
+                $message = 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.';
                 break;
             case 6:
                 $this->handleNeedMoreInfo($transaction);
-                $message = 'Transaction requires more information.';
+                $message = 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.';
                 break;
             default:
                 $message = 'Transaction updated successfully.';

@@ -664,7 +664,7 @@ class AttendanceRecordRepository
 
         $query = DB::table('trans_alasan')
             ->select(
-                'trans_alasan.id',
+                'trans_alasan.id AS tralasan_id',
                 'trans_alasan.idpeg AS user_id',
                 'users.fullname',
                 'users.jawatan AS position',
@@ -696,10 +696,11 @@ class AttendanceRecordRepository
                 ->whereIn(DB::raw('MONTH(trans_alasan.log_datetime)'), $months);
         }
 
-        $query->orderBy('trans_alasan.log_datetime', 'DESC');
+        $query->orderBy('trans_alasan.log_datetime', direction: 'DESC');
 
         return $query->get()->map(function ($record) {
             return [
+                'tralasan_id' => $record->tralasan_id,
                 'name' => $record->fullname,
                 'position' => $record->position,
                 'date' => date('d/m/Y', strtotime($record->log_datetime)),

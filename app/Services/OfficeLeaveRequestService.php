@@ -74,6 +74,7 @@ class OfficeLeaveRequestService
 
             if ($leaveType == 1) { // Bekerja Luar Pejabat
                 $leaveData['totalday'] = $data['bilhari'] ?? null;
+                // Time Off
             } elseif ($leaveType == 2 && !empty($data['masa_keluar']) && !empty($data['masa_kembali'])) {
                 $timeout = Carbon::createFromTimeString($data['masa_keluar']);
                 $timeback = Carbon::createFromTimeString($data['masa_kembali']);
@@ -87,7 +88,7 @@ class OfficeLeaveRequestService
 
             return [
                 'status' => 'success',
-                'message' => 'The leave request was successfully saved and sent to the approver for review.',
+                'message' => 'Proses simpan rekod berjaya dan telah dihantar ke Pegawai Pengesah untuk pengesahan.',
             ];
         } catch (\Exception $e) {
             DB::rollBack(); // Rollback if something fails
