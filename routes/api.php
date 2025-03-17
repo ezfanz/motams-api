@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Status\StatusController;
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Auth\AuthController;
 use App\Http\Controllers\User\UserController;
@@ -77,14 +78,6 @@ Route::group(['prefix' => 'v1', 'middleware' => ['auth:api', 'throttle:global']]
         Route::apiResource('/', AttendanceRecordController::class);
     });
 
-    /**
-     * Attendance Logs
-     */
-    Route::prefix('attendance-logs')->group(function () {
-        Route::get('/', [AttendanceLogController::class, 'index']);
-        Route::get('/{date}', [AttendanceLogController::class, 'show']);
-        Route::post('/', [AttendanceLogController::class, 'store']);
-    });
 
     /**
      * Office Leave Management
@@ -134,18 +127,6 @@ Route::group(['prefix' => 'v1', 'middleware' => ['auth:api', 'throttle:global']]
      */
     Route::get('review-status-options', [ReviewStatusController::class, 'index'])->name('review-status-options.index');
 
-    /**
-     * Attendance Verification
-     */
-    Route::prefix('attendance-verifications')->group(function () {
-        Route::get('/', [VerificationController::class, 'index']);
-        Route::get('/status-options', [VerificationController::class, 'getStatusOptions']);
-        Route::post('/batch-update', [VerificationController::class, 'batchUpdate']);
-        Route::get('/summary', [VerificationController::class, 'getMonthlySummary']);
-        Route::post('/batch-approve', [VerificationController::class, 'batchApprove'])->name('attendance-verifications.batch-approve');
-        Route::post('/batch-review', [VerificationController::class, 'batchReview'])->name('attendance-verifications.batch-review');
-
-    });
 
     /**
      * Attendance Approval
@@ -188,5 +169,12 @@ Route::group(['prefix' => 'v1', 'middleware' => ['auth:api', 'throttle:global']]
      * Alasan
      */
     Route::get('/alasan', [AlasanController::class, 'index']);
+
+    /**
+     * Status
+     */
+    Route::apiResource('status', StatusController::class);
+
+
 
 });
