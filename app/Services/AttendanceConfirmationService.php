@@ -52,7 +52,7 @@ class AttendanceConfirmationService
 
     public function processConfirmation(array $data, int $userId): array
     {
-        $transaction = TransAlasan::find($data['transid']);
+        $transaction = TransAlasan::find($data['tralasan_id']);
 
         if (!$transaction) {
             return ['status' => false, 'message' => 'Transaction not found.'];
@@ -60,13 +60,13 @@ class AttendanceConfirmationService
 
         $transaction->update([
             'pengesah_id' => $userId,
-            'status_pengesah' => $data['statusalasan'],
-            'catatan_pengesah' => $data['catatanpengesah'],
+            'status_pengesah' => $data['status_pengesah'],
+            'catatan_pengesah' => $data['catatan_pengesah'],
             'tkh_pengesah_sah' => Carbon::now(),
-            'status' => $data['statusalasan'],
+            'status' => $data['status_pengesah'],
         ]);
 
-        $message = match ($data['statusalasan']) {
+        $message = match ($data['status_pengesah']) {
             4 => 'Proses kemaskini rekod berjaya dan makluman pengesahan telah dihantar ke Pegawai Seliaan.',
             5 => 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.',
             6 => 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.',

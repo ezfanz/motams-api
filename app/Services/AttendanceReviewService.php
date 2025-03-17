@@ -28,10 +28,44 @@ class AttendanceReviewService
         return $this->repository->getFilteredRecords($filters);
     }
 
-    public function batchUpdateReviewStatus(array $data)
+    public function batchUpdateReviewStatus(array $data, int $userId): array
     {
-        return $this->repository->updateBatchReviewStatus($data['record_ids'], $data['review_status_id'], $data['review_notes']);
+        $recordIds = $data['tralasan_id'];
+    
+        // Fetch all transactions to update
+        $transactions = $this->reasonTransactionRepository->findByIds($recordIds);
+    
+        if ($transactions->isEmpty()) {
+            return ['status' => false, 'message' => 'No valid transactions found for update.'];
+        }
+    
+        $currentTimestamp = Carbon::now();
+    
+        // Process each transaction
+        foreach ($transactions as $transaction) {
+            $this->reasonTransactionRepository->updateReview(
+                $transaction->id,
+                [
+                    'penyemak_id' => $userId,
+                    'status_penyemak' => $data['status_penyemak'],
+                    'catatan_penyemak' => $data['catatan_penyemak'] ?? null,
+                    'tkh_penyemak_semak' => $currentTimestamp,
+                    'status' => $data['status_penyemak'],
+                ]
+            );
+        }
+    
+        // Determine success message based on status
+        $message = match ($data['status_penyemak']) {
+            2 => 'Proses kemaskini berjaya dan telah dihantar ke Pegawai Pengesah untuk pengesahan.',
+            3 => 'Proses kemaskini berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.',
+            6 => 'Proses kemaskini berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya (memerlukan maklumat tambahan).',
+            default => 'Batch update completed successfully.',
+        };
+    
+        return ['status' => true, 'message' => $message];
     }
+    
 
     public function getMonthlyStatusSummary(int $month, int $year)
     {

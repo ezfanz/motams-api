@@ -101,7 +101,6 @@ Route::group(['prefix' => 'v1', 'middleware' => ['auth:api', 'throttle:global']]
             Route::get('/summary', [OfficeLeaveApprovalController::class, 'getMonthlySummary']);
             Route::get('/status', [OfficeLeaveApprovalController::class, 'getSupervisedApprovalStatus'])
                 ->name('office-leave.approvals.status-supervised');
-
         });
     });
 
@@ -155,8 +154,6 @@ Route::group(['prefix' => 'v1', 'middleware' => ['auth:api', 'throttle:global']]
         Route::post('/balik-awal', [AttendanceActionController::class, 'handleEarlyDeparture']);
         Route::post('/datang-lambat', [AttendanceActionController::class, 'handleLateArrival']);
         Route::post('/tidak-hadir', [AttendanceActionController::class, 'handleAbsent']);
-
-
     });
 
 

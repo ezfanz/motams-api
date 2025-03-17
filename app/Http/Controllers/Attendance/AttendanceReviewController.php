@@ -47,9 +47,18 @@ class AttendanceReviewController extends Controller
 
     public function batchUpdate(BatchReviewRequest $request): JsonResponse
     {
-        $this->service->batchUpdateReviewStatus($request->validated());
-        return ResponseHelper::success(null, 'Attendance records updated successfully');
+        $validated = $request->validated();
+        $userId = Auth::id(); // Get logged-in user ID
+    
+        $result = $this->service->batchUpdateReviewStatus($validated, $userId);
+    
+        if ($result['status']) {
+            return response()->json(['status' => 'success', 'message' => $result['message']], 200);
+        }
+    
+        return response()->json(['status' => 'error', 'message' => $result['message']], 400);
     }
+    
 
     public function getMonthlyStatusSummary(AttendanceStatusSummaryRequest $request): JsonResponse
     {

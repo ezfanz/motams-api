@@ -40,4 +40,15 @@ class ReasonTransactionRepository
         return TransAlasan::whereIn('id', $ids)->get();
     }
 
+    public function updateBatchReviewStatus(array $recordIds, int $reviewStatusId, ?string $reviewNotes)
+    {
+        return TransAlasan::whereIn('id', $recordIds)->update([
+            'id' => $reviewStatusId,
+            'catatan_peg' => $reviewNotes,
+            'updated_at' => now(),
+        ]);
+    }
+    
+    
+
 }

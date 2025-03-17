@@ -22,9 +22,9 @@ class ProcessAttendanceConfirmationRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'transid' => 'required|integer|exists:trans_alasan,id',
-            'statusalasan' => 'required|integer|in:4,5,6',
-            'catatanpengesah' => 'nullable|string|max:255',
+            'tralasan_id' => 'required|integer|exists:trans_alasan,id',
+            'status_pengesah' => 'required|integer|in:4,5,6',
+            'catatan_pengesah' => 'nullable|string|max:255',
         ];
     }
 }

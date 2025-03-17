@@ -22,8 +22,8 @@ class BatchReviewRequest extends FormRequest
         return [
             'tralasan_id' => 'required|array|min:1',
             'tralasan_id.*' => 'integer|exists:trans_alasan,id',
-            'statusalasan' => 'required|integer|in:2,3,6',
-            'catatanpenyemak' => 'nullable|string|max:500',
+            'status_penyemak' => 'required|integer|in:2,3,6',
+            'catatan_penyemak' => 'nullable|string|max:500',
         ];
     }
 }
