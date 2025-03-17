@@ -7,6 +7,7 @@ use Illuminate\Support\ServiceProvider;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -38,6 +39,15 @@ class AppServiceProvider extends ServiceProvider
                         'error_code' => 'AUTH_RATE_LIMIT'
                     ], 429, $headers);
                 });
+        });
+
+        // Automatically apply collation fix to 'lateinoutview' queries
+        DB::macro('lateinoutviewFix', function ($query) {
+            return DB::select(
+                str_replace('staffid', 
+                "CAST(staffid AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_general_ci", 
+                $query)
+            );
         });
         
     }

@@ -7,6 +7,8 @@ use Illuminate\Database\Eloquent\Collection;
 use App\Models\OfficeLeaveRequest;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\DB;
 
 class OfficeLeaveRequestService
 {
@@ -51,46 +53,52 @@ class OfficeLeaveRequestService
      */
     public function createLeaveRequest(int $userId, array $data): array
     {
-        // Validate the required fields based on the leave type
-        $leaveType = $data['jenis'];
-        $leaveData = [
-            'idpeg' => $userId,
-            'leave_type_id' => $leaveType,
-            'date_mula' => $data['tkh_mula'],
-            'date_tamat' => $leaveType == 1 ? $data['tkh_hingga'] : $data['tkh_mula'],
-            'day_timeoff' => $data['hari_timeoff'] ?? null,
-            'start_time' => $data['masa_keluar'] ?? null,
-            'end_time' => $data['masa_kembali'] ?? null,
-            'reason' => $data['catatan'],
-            'tkh_mohon' => Carbon::now()->format('Y-m-d H:i:s.u'),
-            'status' => 15, // Pending status
-            'id_pencipta' => $userId,
-            'pengguna' => $userId,
-        ];
+        try {
+            // Validate the required fields based on the leave type
+            $leaveType = $data['jenis'];
+            $leaveData = [
+                'idpeg' => $userId,
+                'leave_type_id' => $leaveType,
+                'date_mula' => $data['tkh_mula'],
+                'date_tamat' => $leaveType == 1 ? $data['tkh_hingga'] : $data['tkh_mula'],
+                'day_timeoff' => $data['hari_timeoff'] ?? null,
+                'start_time' => $data['masa_keluar'] ?? null,
+                'end_time' => $data['masa_kembali'] ?? null,
+                'reason' => $data['catatan'],
+                'tkh_mohon' => Carbon::now()->format('Y-m-d H:i:s.u'),
+                'status' => 15, // Pending status
+                'id_pencipta' => $userId,
+                'pengguna' => $userId,
+            ];
+            
 
-        if ($leaveType == 1) { // Bekerja Luar Pejabat
-            $leaveData['totalday'] = $data['bilhari'] ?? null;
-        } elseif ($leaveType == 2) { // Time-Off
-            $timeout = Carbon::createFromTimeString($data['masa_keluar']);
-            $timeback = Carbon::createFromTimeString($data['masa_kembali']);
-            $diffInMinutes = $timeout->diffInMinutes($timeback);
-            $leaveData['totalhours'] = $diffInMinutes / 60;
-        }
+            if ($leaveType == 1) { // Bekerja Luar Pejabat
+                $leaveData['totalday'] = $data['bilhari'] ?? null;
+            } elseif ($leaveType == 2 && !empty($data['masa_keluar']) && !empty($data['masa_kembali'])) {
+                $timeout = Carbon::createFromTimeString($data['masa_keluar']);
+                $timeback = Carbon::createFromTimeString($data['masa_kembali']);
+                $diffInMinutes = $timeout->diffInMinutes($timeback);
+                $leaveData['totalhours'] = $diffInMinutes / 60;
+            }
+    
+            Log::info("Creating Leave Request:", $leaveData);
+                  
+            $leaveRequest = OfficeLeaveRequest::create($leaveData);
 
-        $leaveRequest = $this->repository->create($leaveData);
-
-        if ($leaveRequest) {
             return [
                 'status' => 'success',
                 'message' => 'The leave request was successfully saved and sent to the approver for review.',
             ];
+        } catch (\Exception $e) {
+            DB::rollBack(); // Rollback if something fails
+            Log::error('Leave request failed to save', ['error' => $e->getMessage()]);
+            return [
+                'status' => 'error',
+                'message' => 'Database error: ' . $e->getMessage(),
+            ];
         }
-
-        return [
-            'status' => 'error',
-            'message' => 'Failed to save the leave request.',
-        ];
     }
+    
 
 
     /**

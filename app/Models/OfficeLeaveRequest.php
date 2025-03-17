@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Database\Eloquent\SoftDeletes;
 use Carbon\Carbon;
 
 
@@ -17,6 +16,9 @@ class OfficeLeaveRequest extends Model
      *
      * @var array<int, string>
      */
+
+     protected $table = 'office_leave_requests';
+
     protected $fillable = [
         'idpeg',
         'leave_type_id',
@@ -37,7 +39,6 @@ class OfficeLeaveRequest extends Model
         'is_deleted',
         'id_pencipta',
         'pengguna',
-        'is_deleted',
     ];
 
     /**
