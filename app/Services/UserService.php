@@ -329,16 +329,17 @@ class UserService
             ->whereBetween('calendars.fulldate', [$startDate, $yesterday]) // Only fetch for this month excluding today
             ->groupBy('calendars.fulldate', 'calendars.isweekday', 'calendars.isholiday')
             ->get();
-    
+
         // Fetch early out records (excluding today)
-        $earlyOutCount = DB::table('lateinoutview')
-            ->whereRaw("CAST(staffid AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_unicode_ci = ?", [$idstaff])
-            ->whereBetween('trdate', [$startDate, $yesterday]) // Exclude today
-            ->where('earlyout', 1)
-            ->where('isweekday', 1)
-            ->where('isholiday', 0)
-            ->count();
-    
+        $earlyOutCount = DB::lateinoutviewFix("
+        SELECT COUNT(*) as total FROM lateinoutview 
+        WHERE CAST(staffid AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_general_ci = $idstaff
+        AND trdate BETWEEN '$startDate' AND '$yesterday'
+        AND earlyout = 1
+        AND isweekday = 1
+        AND isholiday = 0
+    ")[0]->total;
+
         // Fetch absence records count (excluding today)
         $absentRecords = $this->fetchAbsentRecordsCount($idpeg, $startDate, $yesterday);
         $absentCount = $absentRecords['total_absent_count'];
