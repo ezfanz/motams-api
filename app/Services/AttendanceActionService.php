@@ -55,8 +55,14 @@ class AttendanceActionService
     public function handleLateArrival(array $data)
     {
 
-         // Ensure the date is always in 'Y-m-d' format
-         $data['fulldate'] = Carbon::createFromFormat('d/m/Y', $data['fulldate'])->format('Y-m-d');
+        try {
+            // Check if date is already in 'Y-m-d' format, otherwise convert it
+            if (preg_match('/\d{2}\/\d{2}\/\d{4}/', $data['fulldate'])) {
+                $data['fulldate'] = Carbon::createFromFormat('d/m/Y', $data['fulldate'])->format('Y-m-d');
+            }
+        } catch (\Exception $e) {
+            return $this->response('Invalid date format. Expected format: d/m/Y or Y-m-d.', '#dc3545', 400);
+        }
 
         // Check if a transaction already exists
         $existingRecord = TransAlasan::where('idpeg', $data['idpeg'])
@@ -64,9 +70,9 @@ class AttendanceActionService
             ->where('jenisalasan_id', 1) // Late Arrival jenisalasan_id
             ->where('is_deleted', 0)
             ->first();
-    
+
         $boxColor = $this->getBoxColor($existingRecord->status ?? null);
-    
+
         if ($existingRecord) {
             // **Instead of returning an error, update the existing record**
             $this->attendanceActionRepository->updateRecord([
@@ -74,46 +80,52 @@ class AttendanceActionService
                 'statalasan' => $data['statalasan'],
                 'catatanpeg' => $data['catatanpeg'],
             ], 1);
-    
+
             return $this->response('Late arrival record updated successfully.', $boxColor, 200);
         }
-    
+
         // If no existing record, create a new one
         $this->attendanceActionRepository->createRecord($data, 1);
         return $this->response('New late arrival record created successfully.', $boxColor, 201);
     }
-    
+
 
     public function handleAbsent(array $data)
     {
-        // Ensure the date is always in 'Y-m-d' format
-        $data['fulldate'] = Carbon::createFromFormat('d/m/Y', $data['fulldate'])->format('Y-m-d');
-    
+        try {
+            // Check if date is already in 'Y-m-d' format, otherwise convert it
+            if (preg_match('/\d{2}\/\d{2}\/\d{4}/', $data['fulldate'])) {
+                $data['fulldate'] = Carbon::createFromFormat('d/m/Y', $data['fulldate'])->format('Y-m-d');
+            }
+        } catch (\Exception $e) {
+            return $this->response('Invalid date format. Expected format: d/m/Y or Y-m-d.', '#dc3545', 400);
+        }
+
         // Check if a transaction already exists
         $existingRecord = TransAlasan::where('idpeg', $data['idpeg'])
-            ->where('log_datetime', $data['fulldate']) // Ensure correct date
+            ->whereDate('log_datetime', $data['fulldate']) // Use `whereDate()` for date-only comparison
             ->where('jenisalasan_id', 3) // Tidak Hadir (Absent)
             ->where('is_deleted', 0)
             ->first();
 
         $boxColor = $this->getBoxColor($existingRecord->status ?? null);
-    
+
         if ($existingRecord) {
-            // **Instead of returning an error, update the existing record**
+            // Update existing record instead of returning an error
             $this->attendanceActionRepository->updateRecord([
                 'transid' => $existingRecord->id, // Use existing transid
                 'statalasan' => $data['statalasan'],
                 'catatanpeg' => $data['catatanpeg'],
             ], 3);
-    
+
             return $this->response('Absent record updated successfully.', $boxColor, 200);
         }
-    
+
         // If no existing record, create a new one
         $this->attendanceActionRepository->createRecord($data, 3);
         return $this->response('New absent record created successfully.', $boxColor, 201);
     }
-    
+
 
 
     private function getBoxColor(?int $statusCode)
