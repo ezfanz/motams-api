@@ -97,18 +97,7 @@ class AttendanceReviewController extends Controller
         return response()->json(['status' => 'success', 'data' => $details], 200);
     }
 
-    public function batchProcess(BatchProcessAttendanceReviewRequest $request)
-    {
-        $validated = $request->validated(); // Validate incoming data
-        $userId = Auth::id(); // Get authenticated user ID
-        $result = $this->service->processBatchReview($validated, $userId);
-
-        if ($result['status']) {
-            return response()->json(['status' => 'success', 'message' => $result['message']], 200);
-        }
-
-        return response()->json(['status' => 'error', 'message' => $result['message']], 400);
-    }
+   
 
     public function individualReview(Request $request)
     {

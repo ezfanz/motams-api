@@ -136,7 +136,7 @@ Route::group(['prefix' => 'v1', 'middleware' => ['auth:api', 'throttle:global']]
             ->name('attendance-confirmation.details');
         Route::post('/confirmation/process', [AttendanceConfirmationController::class, 'processConfirmation'])
             ->name('attendance-confirmation.process');
-        Route::post('/batch-process', [AttendanceReviewController::class, 'batchProcess'])->name('attendance-reviews.batch-process');
+        Route::post('/batch-update', [AttendanceApprovalController::class, 'batchProcess'])->name('attendance-reviews.batch-process');
 
     });
 

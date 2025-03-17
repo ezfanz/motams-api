@@ -7,6 +7,7 @@ use Illuminate\Http\Request;
 use App\Services\AttendanceApprovalService;
 use Illuminate\Support\Facades\Auth;
 use App\Helpers\ResponseHelper;
+use App\Http\Requests\Attendance\BatchProcessAttendanceApprovalRequest;
 
 class AttendanceApprovalController extends Controller
 {
@@ -28,6 +29,19 @@ class AttendanceApprovalController extends Controller
         $approvalList = $this->service->getApprovalList($userId, $roleId, $monthSearch, $yearSearch);
 
         return ResponseHelper::success($approvalList, 'Pending Approval list retrieved successfully');
+    }
+
+    public function batchProcess(BatchProcessAttendanceApprovalRequest $request)
+    {
+        $validated = $request->validated(); // Validate incoming data
+        $userId = Auth::id(); // Get authenticated user ID
+        $result = $this->service->processBatchApprove($validated, $userId);
+
+        if ($result['status']) {
+            return response()->json(['status' => 'success', 'message' => $result['message']], 200);
+        }
+
+        return response()->json(['status' => 'error', 'message' => $result['message']], 400);
     }
 
 }
