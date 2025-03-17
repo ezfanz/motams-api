@@ -263,12 +263,12 @@ class AttendanceRecordRepository
     {
         // Fetch the staff ID for the given user
         $idStaff = User::where('is_deleted', '!=', 1)->where('id', $userId)->value('staffid');
-
+    
         if (!$idStaff) {
             Log::error("Error: Staff ID not found for user ID: $userId");
             return [];
         }
-
+    
         // Query to get late attendance records
         $records = DB::table('calendars AS c')
             ->leftJoin('transit AS t', function ($join) use ($idStaff) {
@@ -286,43 +286,32 @@ class AttendanceRecordRepository
                 DB::raw("$userId AS idpeg"),
                 DB::raw('MIN(t.trdatetime) AS datetimein'),
                 DB::raw("DATE_FORMAT(MIN(t.trdatetime), '%T') AS timein"),
-                DB::raw("
-                    CASE
-                        WHEN c.isweekday = 1 AND c.isholiday = 0 AND TIME(MIN(t.trdatetime)) >= '09:01:00' THEN 1
-                        ELSE 0
-                    END AS latein
-                "),
-                DB::raw("
-                    (
-                        SELECT a.diskripsi
-                        FROM trans_alasan AS ta
-                        LEFT JOIN alasan AS a ON ta.alasan_id = a.id
-                        WHERE ta.log_datetime = (
-                            SELECT MIN(t2.trdatetime) 
-                            FROM transit AS t2 
-                            WHERE t2.staffid = t.staffid
-                        )
-                        AND ta.idpeg = $userId
-                        AND ta.jenisalasan_id = 1
-                        AND ta.is_deleted = 0
-                        LIMIT 1
-                    ) AS latereason
-                "),
-                DB::raw("
-                    (
-                        SELECT ta.status
-                        FROM trans_alasan AS ta
-                        WHERE ta.log_datetime = (
-                            SELECT MIN(t2.trdatetime) 
-                            FROM transit AS t2 
-                            WHERE t2.staffid = t.staffid
-                        )
-                        AND ta.idpeg = $userId
-                        AND ta.jenisalasan_id = 1
-                        AND ta.is_deleted = 0
-                        LIMIT 1
-                    ) AS statuslate
-                ")
+                DB::raw("CASE
+                            WHEN c.isweekday = 1 
+                            AND c.isholiday = 0 
+                            AND TIME(MIN(t.trdatetime)) >= '09:01:00' 
+                            THEN 1 
+                            ELSE 0 
+                         END AS latein"),
+                DB::raw("(
+                            SELECT a.diskripsi
+                            FROM trans_alasan AS ta
+                            LEFT JOIN alasan AS a ON ta.alasan_id = a.id
+                            WHERE DATE(ta.log_datetime) = DATE(c.fulldate)
+                            AND ta.idpeg = $userId
+                            AND ta.jenisalasan_id = 1
+                            AND ta.is_deleted = 0
+                            LIMIT 1
+                        ) AS latereason"),
+                DB::raw("(
+                            SELECT ta.status
+                            FROM trans_alasan AS ta
+                            WHERE DATE(ta.log_datetime) = DATE(c.fulldate)
+                            AND ta.idpeg = $userId
+                            AND ta.jenisalasan_id = 1
+                            AND ta.is_deleted = 0
+                            LIMIT 1
+                        ) AS statuslate")
             )
             ->whereBetween('c.fulldate', [$startDay, $lastDay])
             ->where('c.isweekday', 1)
@@ -340,7 +329,7 @@ class AttendanceRecordRepository
             ->havingRaw('TIME(MIN(t.trdatetime)) >= "09:01:00"')
             ->orderBy('c.fulldate', 'ASC')
             ->get();
-
+    
         // Map records for display and apply box color logic
         return $records->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->fulldate));
@@ -348,6 +337,7 @@ class AttendanceRecordRepository
             return (array) $record;
         })->toArray();
     }
+    
 
     public function fetchAbsentRecords(int $userId): array
     {

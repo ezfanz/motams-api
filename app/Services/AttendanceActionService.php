@@ -17,6 +17,7 @@ class AttendanceActionService
 
     public function handleEarlyDeparture(array $data)
     {
+
         // Check if a transaction already exists
         $statusDetails = $this->attendanceActionRepository->getAttendanceStatus(
             $data['idpeg'],
@@ -53,6 +54,10 @@ class AttendanceActionService
 
     public function handleLateArrival(array $data)
     {
+
+         // Ensure the date is always in 'Y-m-d' format
+         $data['fulldate'] = Carbon::createFromFormat('d/m/Y', $data['fulldate'])->format('Y-m-d');
+
         // Check if a transaction already exists
         $existingRecord = TransAlasan::where('idpeg', $data['idpeg'])
             ->where('log_datetime', $data['datetimein']) // Ensure correct date
@@ -81,13 +86,16 @@ class AttendanceActionService
 
     public function handleAbsent(array $data)
     {
+        // Ensure the date is always in 'Y-m-d' format
+        $data['fulldate'] = Carbon::createFromFormat('d/m/Y', $data['fulldate'])->format('Y-m-d');
+    
         // Check if a transaction already exists
         $existingRecord = TransAlasan::where('idpeg', $data['idpeg'])
             ->where('log_datetime', $data['fulldate']) // Ensure correct date
             ->where('jenisalasan_id', 3) // Tidak Hadir (Absent)
             ->where('is_deleted', 0)
             ->first();
-    
+
         $boxColor = $this->getBoxColor($existingRecord->status ?? null);
     
         if ($existingRecord) {
