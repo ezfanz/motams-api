@@ -185,6 +185,8 @@ class UserService
 
         $totalPendingReviews = $this->attendanceRecordService->getReviewCount($idpeg, $roleId);
 
+        $totalPendingApprovals = $this->attendanceRecordService->getApprovalCount($idpeg, $roleId);
+
         // Enable Query Logging
         DB::enableQueryLog();
 
@@ -259,9 +261,6 @@ class UserService
             ->where('pelulus_id', $idpeg)
             ->count();
 
-        // Pending reviews and approvals
-        [$bilsemakan, $bilpengesahan] = $this->calculateBilCounts($userId, $roleId);
-
         return response()->json([
             'status' => 'success',
             'message' => 'Profile retrieved successfully',
@@ -276,7 +275,7 @@ class UserService
                 'color_change_count' => $countColorsAll,
                 'total_leave_requests' => $tindakan_kelulusan_count,
                 'total_pending_reviews' => $totalPendingReviews,
-                'total_pending_approvals' => $bilpengesahan,
+                'total_pending_approvals' => $totalPendingApprovals,
                 'trans_alasan' => $transAlasanDetails
             ]
         ]);
