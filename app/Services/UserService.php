@@ -256,10 +256,19 @@ class UserService
             ->whereIn('penukaranwarna.status', [7, 8, 9, 10, 11, 12])
             ->count();
 
-        // Total leave requests
-        $tindakan_kelulusan_count = OfficeLeaveRequest::where('status', '15')
-            ->where('pelulus_id', $idpeg)
-            ->count();
+        //  Logic for Total Leave Requests
+        if ($roleId == 3) {
+            // **For role ID 3 (Admin or Manager role)**
+            $tindakan_office_leave_kelulusan_count = DB::table('office_leave_requests')
+                ->leftJoin('users', 'office_leave_requests.idpeg', '=', 'users.id')
+                ->where('office_leave_requests.status', Status::BARU)
+                ->count();
+        } else {
+            // **For normal users (only count requests they need to approve)**
+            $tindakan_office_leave_kelulusan_count = OfficeLeaveRequest::where('status', Status::BARU)
+                ->where('pelulus_id', $idpeg)
+                ->count();
+        }
 
         return response()->json([
             'status' => 'success',
@@ -273,7 +282,7 @@ class UserService
                 'timeout' => $timeout,
                 'attendance_summary' => $attendanceSummary,
                 'color_change_count' => $countColorsAll,
-                'total_leave_requests' => $tindakan_kelulusan_count,
+                'total_leave_requests' => $tindakan_office_leave_kelulusan_count,
                 'total_pending_reviews' => $totalPendingReviews,
                 'total_pending_approvals' => $totalPendingApprovals,
                 'trans_alasan' => $transAlasanDetails

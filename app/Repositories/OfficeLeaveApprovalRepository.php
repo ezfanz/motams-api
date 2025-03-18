@@ -7,83 +7,90 @@ use App\Models\ReviewStatus;
 use App\Models\User;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\DB;
-
+use App\Models\Status;
 
 class OfficeLeaveApprovalRepository
 {
     public function filterPendingApprovals(int $userId, int $roleId, array $filters)
-    {
-        $query = OfficeLeaveRequest::select(
-            'office_leave_requests.id AS leave_id',
-            'users.fullname',
-            'users.jawatan',
-            'office_leave_requests.leave_type_id',
-            'leave_types.diskripsi as jenis_leave',
-            DB::raw("DATE_FORMAT(office_leave_requests.date_mula, '%d/%m/%Y') AS date_mula"),
-            DB::raw("DATE_FORMAT(office_leave_requests.date_tamat, '%d/%m/%Y') AS date_tamat"),
-            'office_leave_requests.day_timeoff',
-            'office_leave_requests.start_time',
-            'office_leave_requests.end_time',
-            'office_leave_requests.totalday',
-            'office_leave_requests.totalhours',
-            'office_leave_requests.reason',
-            DB::raw("
-                CONCAT(
-                    FLOOR(office_leave_requests.totalhours), ' Jam ', 
-                    ROUND((MOD(office_leave_requests.totalhours, 1) * 60)), ' Minit'
-                ) AS total_hours_minutes
-            "),
-            DB::raw("DATE_FORMAT(office_leave_requests.tkh_mohon, '%d/%m/%Y %h:%i:%s %p') AS tarikh_mohon")
-        )
-        ->leftJoin('leave_types', 'office_leave_requests.leave_type_id', '=', 'leave_types.id')
-        ->leftJoin('users', 'office_leave_requests.idpeg', '=', 'users.id')
-        ->where('office_leave_requests.status', '15');
-    
-        if ($roleId != 3) {
-            // For non-admin roles, filter by approver ID
-            $query->where('office_leave_requests.pelulus_id', $userId);
-        }
-    
-        // Apply filters
-        if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
-            $query->whereBetween('office_leave_requests.date_mula', [$filters['start_date'], $filters['end_date']]);
-        }
-    
-        if (!empty($filters['employee_name'])) {
-            $query->whereHas('creator', function ($q) use ($filters) {
-                $q->where('fullname', 'like', '%' . $filters['employee_name'] . '%');
-            });
-        }
-    
-        return $query->get()->map(function ($leaveRequest) {
-            if ($leaveRequest->leave_type_id == 1) {
-                return [
-                    'leave_id' => $leaveRequest->leave_id,
-                    'name' => $leaveRequest->fullname,
-                    'position' => $leaveRequest->jawatan,
-                    'type' => $leaveRequest->jenis_leave,
-                    'start_date' => $leaveRequest->date_mula,
-                    'end_date' => $leaveRequest->date_tamat,
-                    'days_count' => $leaveRequest->totalday . ' Hari',
-                    'application_date' => $leaveRequest->tarikh_mohon,
-                ];
-            } elseif ($leaveRequest->leave_type_id == 2) {
-                return [
-                    'leave_id' => $leaveRequest->leave_id,
-                    'name' => $leaveRequest->fullname,
-                    'position' => $leaveRequest->jawatan,
-                    'type' => $leaveRequest->jenis_leave,
-                    'date' => $leaveRequest->date_mula,
-                    'day' => $leaveRequest->day_timeoff,
-                    'start_time' => $leaveRequest->start_time,
-                    'end_time' => $leaveRequest->end_time,
-                    'hours_count' => $leaveRequest->total_hours_minutes,
-                    'application_date' => $leaveRequest->tarikh_mohon,
-                ];
-            }
-            return [];
+{
+    $query = OfficeLeaveRequest::select(
+        'office_leave_requests.id AS leave_id',
+        'users.fullname',
+        'users.jawatan',
+        'office_leave_requests.leave_type_id',
+        'leave_types.diskripsi as jenis_leave',
+        'office_leave_requests.status', // Ensure status is selected
+        DB::raw("DATE_FORMAT(office_leave_requests.date_mula, '%d/%m/%Y') AS date_mula"),
+        DB::raw("DATE_FORMAT(office_leave_requests.date_tamat, '%d/%m/%Y') AS date_tamat"),
+        'office_leave_requests.day_timeoff',
+        'office_leave_requests.start_time',
+        'office_leave_requests.end_time',
+        'office_leave_requests.totalday',
+        'office_leave_requests.totalhours',
+        'office_leave_requests.reason',
+        DB::raw("
+            CONCAT(
+                FLOOR(office_leave_requests.totalhours), ' Jam ', 
+                ROUND((MOD(office_leave_requests.totalhours, 1) * 60)), ' Minit'
+            ) AS total_hours_minutes
+        "),
+        DB::raw("DATE_FORMAT(office_leave_requests.tkh_mohon, '%d/%m/%Y %h:%i:%s %p') AS tarikh_mohon")
+    )
+    ->leftJoin('leave_types', 'office_leave_requests.leave_type_id', '=', 'leave_types.id')
+    ->leftJoin('users', 'office_leave_requests.idpeg', '=', 'users.id')
+    ->where('office_leave_requests.status', Status::BARU); // Ensure filtering by status 15
+
+    if ($roleId != 3) {
+        // For non-admin roles, filter by approver ID
+        $query->where('office_leave_requests.pelulus_id', $userId);
+    }
+
+    // Apply filters
+    if (!empty($filters['start_date']) && !empty($filters['end_date'])) {
+        $query->whereBetween('office_leave_requests.date_mula', [$filters['start_date'], $filters['end_date']]);
+    }
+
+    if (!empty($filters['employee_name'])) {
+        $query->whereHas('creator', function ($q) use ($filters) {
+            $q->where('fullname', 'like', '%' . $filters['employee_name'] . '%');
         });
     }
+
+    return $query->get()->map(function ($leaveRequest) {
+        // Convert status ID to meaningful text using the Status model method
+        $statusText = Status::getStatusName($leaveRequest->status);
+
+        if ($leaveRequest->leave_type_id == 1) {
+            return [
+                'leave_id' => $leaveRequest->leave_id,
+                'name' => $leaveRequest->fullname,
+                'position' => $leaveRequest->jawatan,
+                'type' => $leaveRequest->jenis_leave,
+                'start_date' => $leaveRequest->date_mula,
+                'end_date' => $leaveRequest->date_tamat,
+                'days_count' => $leaveRequest->totalday . ' Hari',
+                'application_date' => $leaveRequest->tarikh_mohon,
+                'status' => $statusText, 
+            ];
+        } elseif ($leaveRequest->leave_type_id == 2) {
+            return [
+                'leave_id' => $leaveRequest->leave_id,
+                'name' => $leaveRequest->fullname,
+                'position' => $leaveRequest->jawatan,
+                'type' => $leaveRequest->jenis_leave,
+                'date' => $leaveRequest->date_mula,
+                'day' => $leaveRequest->day_timeoff,
+                'start_time' => $leaveRequest->start_time,
+                'end_time' => $leaveRequest->end_time,
+                'hours_count' => $leaveRequest->total_hours_minutes,
+                'application_date' => $leaveRequest->tarikh_mohon,
+                'status' => $statusText, 
+            ];
+        }
+        return [];
+    });
+}
+    
 
 
     /**
