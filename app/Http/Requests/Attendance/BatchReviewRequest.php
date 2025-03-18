@@ -22,7 +22,8 @@ class BatchReviewRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'tralasan_id' => 'required|integer|exists:trans_alasan,id',
+            'tralasan_id' => 'required|array|min:1',
+            'tralasan_id.*' => 'integer|exists:trans_alasan,id',
             'status_penyemak' => 'nullable|integer|in:' . implode(',', [
                 Status::MENUNGGU_SEMAKAN,
                 Status::DITERIMA_PENYEMAK,

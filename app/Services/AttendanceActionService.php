@@ -54,49 +54,45 @@ class AttendanceActionService
 
     public function handleLateArrival(array $data)
     {
-
         try {
-            // Check if date is already in 'Y-m-d' format, otherwise convert it
-            if (preg_match('/\d{2}\/\d{2}\/\d{4}/', $data['fulldate'])) {
-                $data['fulldate'] = Carbon::createFromFormat('d/m/Y', $data['fulldate'])->format('Y-m-d');
-            }
+            // Convert date format using Carbon::parse()
+            $data['fulldate'] = Carbon::parse($data['fulldate'])->format('Y-m-d');
         } catch (\Exception $e) {
             return $this->response('Invalid date format. Expected format: d/m/Y or Y-m-d.', '#dc3545', 400);
         }
-
+    
         // Check if a transaction already exists
         $existingRecord = TransAlasan::where('idpeg', $data['idpeg'])
-            ->where('log_datetime', $data['datetimein']) // Ensure correct date
+            ->whereDate('log_datetime', $data['fulldate']) // Ensure correct date comparison
             ->where('jenisalasan_id', 1) // Late Arrival jenisalasan_id
             ->where('is_deleted', 0)
             ->first();
-
+    
         $boxColor = $this->getBoxColor($existingRecord->status ?? null);
-
+    
         if ($existingRecord) {
-            // **Instead of returning an error, update the existing record**
+            // Update existing record
             $this->attendanceActionRepository->updateRecord([
                 'transid' => $existingRecord->id, // Use existing transid
                 'statalasan' => $data['statalasan'],
                 'catatanpeg' => $data['catatanpeg'],
             ], 1);
-
+    
             return $this->response('Late arrival record updated successfully.', $boxColor, 200);
         }
-
-        // If no existing record, create a new one
+    
+        // Create a new record if none exists
         $this->attendanceActionRepository->createRecord($data, 1);
         return $this->response('New late arrival record created successfully.', $boxColor, 201);
     }
-
+    
+    
 
     public function handleAbsent(array $data)
     {
         try {
-            // Check if date is already in 'Y-m-d' format, otherwise convert it
-            if (preg_match('/\d{2}\/\d{2}\/\d{4}/', $data['fulldate'])) {
-                $data['fulldate'] = Carbon::createFromFormat('d/m/Y', $data['fulldate'])->format('Y-m-d');
-            }
+            // Convert date format using Carbon::parse()
+            $data['fulldate'] = Carbon::parse($data['fulldate'])->format('Y-m-d');
         } catch (\Exception $e) {
             return $this->response('Invalid date format. Expected format: d/m/Y or Y-m-d.', '#dc3545', 400);
         }
