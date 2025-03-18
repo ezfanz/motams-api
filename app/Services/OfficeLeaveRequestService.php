@@ -9,6 +9,7 @@ use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\DB;
+use App\Models\Status;
 
 class OfficeLeaveRequestService
 {
@@ -162,11 +163,20 @@ class OfficeLeaveRequestService
         ];
     }
 
-    public function countApprovalsForUser(int $userId): int
+    public function countApprovalsForUser(int $userId, int $roleId): int
     {
-        return OfficeLeaveRequest::where('status', '15')
-            ->where('pelulus_id', $userId)
-            ->count();
+        if ($roleId == 3) {
+            // **For Admin (role_id = 3), count ALL pending approvals**
+            return DB::table('office_leave_requests')
+                ->leftJoin('users', 'office_leave_requests.idpeg', '=', 'users.id')
+                ->where('office_leave_requests.status', Status::BARU)
+                ->count();
+        } else {
+            // **For Regular Users, count only approvals they are assigned to**
+            return OfficeLeaveRequest::where('status', Status::BARU)
+                ->where('pelulus_id', $userId)
+                ->count();
+        }
     }
 
 }

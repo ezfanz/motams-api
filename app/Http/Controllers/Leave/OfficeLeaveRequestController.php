@@ -128,18 +128,21 @@ class OfficeLeaveRequestController extends Controller
 
     public function countApproval(Request $request): JsonResponse
     {
-        // Get the current user ID
-        $userId = Auth::user()->id;
-
+        // Get the current user
+        $user = Auth::user();
+        $userId = $user->id;
+        $roleId = $user->role_id;
+    
         // If there's a passed parameter for user ID (from the box), use it
         if ($request->has('idpeg') && is_numeric($request->input('idpeg'))) {
             $userId = $request->input('idpeg');
         }
-
-        // Call the service to count approvals
-        $approvalCount = $this->service->countApprovalsForUser($userId);
-
+    
+        // Call the service to count approvals based on role
+        $approvalCount = $this->service->countApprovalsForUser($userId, $roleId);
+    
         // Return the count as a response
         return ResponseHelper::success(['count' => $approvalCount], 'Approval office leave count retrieved successfully');
     }
+    
 }
