@@ -311,7 +311,16 @@ class AttendanceRecordRepository
                             AND ta.jenisalasan_id = 1
                             AND ta.is_deleted = 0
                             LIMIT 1
-                        ) AS statuslate")
+                        ) AS statuslate"),
+                DB::raw("(
+                            SELECT ta.catatan_peg
+                            FROM trans_alasan AS ta
+                            WHERE DATE(ta.log_datetime) = DATE(c.fulldate)
+                            AND ta.idpeg = $userId
+                            AND ta.jenisalasan_id = 1
+                            AND ta.is_deleted = 0
+                            LIMIT 1
+                        ) AS catatan_peg")
             )
             ->whereBetween('c.fulldate', [$startDay, $lastDay])
             ->where('c.isweekday', 1)
@@ -337,6 +346,7 @@ class AttendanceRecordRepository
             return (array) $record;
         })->toArray();
     }
+    
     
 
     public function fetchAbsentRecords(int $userId): array
