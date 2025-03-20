@@ -172,8 +172,8 @@ Route::group(['prefix' => 'v1', 'middleware' => ['auth:api', 'throttle:global']]
     /**
      * Status
      */
+    Route::get('/status/semakan', [StatusController::class, 'getSemakanStatuses']); // Get Semakan statuses
+    Route::get('/status/pengesahan', [StatusController::class, 'getPengesahanStatuses']);
     Route::apiResource('status', StatusController::class);
-
-
-
+    
 });
