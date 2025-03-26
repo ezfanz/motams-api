@@ -168,120 +168,130 @@ class AttendanceRecordRepository
             'startDay' => $startDay,
             'lastDay' => $lastDay,
         ]);
-    
+
         $results = DB::select("SELECT 
-            calendars.fulldate,
-            calendars.year,
-            calendars.monthname,
-            calendars.dayname,
-            calendars.isweekday,
-            calendars.isholiday,
-            transit.staffid,
-            ? AS idpeg,
-            MIN(transit.trdatetime) AS datetimein,
-            DATE_FORMAT(MIN(transit.trdatetime), '%T') AS timein,
-            MAX(transit.trdatetime) AS datetimeout,
-            DATE_FORMAT(MAX(transit.trdatetime), '%T') AS timeout,
-            CASE
-                WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND TIME(MIN(transit.trdatetime)) >= '09:01:00' THEN 1
-                ELSE 0
-            END AS latein,
-            CASE
-                WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND ANY_VALUE(transit.ramadhan_yt) = 0 AND TIME(MAX(transit.trdatetime)) <= '18:00:00'
-                     AND (HOUR(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime)))) > (HOUR(MAX(transit.trdatetime)) * 60 + MINUTE(MAX(transit.trdatetime)))
-                THEN 1
-                WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND ANY_VALUE(transit.ramadhan_yt) = 0 AND (TIME(MIN(transit.trdatetime)) = TIME(MAX(transit.trdatetime)) OR TIME(MAX(transit.trdatetime)) <= '16:30:00') THEN 1
-                WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND ANY_VALUE(transit.ramadhan_yt) = 1 AND TIME(MAX(transit.trdatetime)) <= '18:00:00'
-                     AND (HOUR(TIMESTAMPADD(MINUTE, 510, MIN(transit.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 510, MIN(transit.trdatetime)))) > (HOUR(MAX(transit.trdatetime)) * 60 + MINUTE(MAX(transit.trdatetime)))
-                THEN 1
-                WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND ANY_VALUE(transit.ramadhan_yt) = 1 AND (TIME(MIN(transit.trdatetime)) = TIME(MAX(transit.trdatetime)) OR TIME(MAX(transit.trdatetime)) <= '16:00:00') THEN 1
-                ELSE 0
-            END AS earlyout,
-            (
-                SELECT alasan.diskripsi
-                FROM trans_alasan
-                LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
-                WHERE trans_alasan.log_datetime = MIN(transit.trdatetime)
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 1
-                AND trans_alasan.is_deleted = 0
-                LIMIT 1
-            ) AS latereason,
-            (
-                SELECT alasan.diskripsi
-                FROM trans_alasan
-                LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
-                WHERE trans_alasan.log_datetime = MAX(transit.trdatetime)
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 2
-                AND trans_alasan.is_deleted = 0
-                LIMIT 1
-            ) AS earlyreason,
-            (
-                SELECT alasan.diskripsi
-                FROM trans_alasan
-                LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
-                WHERE trans_alasan.log_datetime = calendars.fulldate
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 3
-                AND trans_alasan.is_deleted = 0
-                LIMIT 1
-            ) AS absentreasont,
-            (
-                SELECT trans_alasan.status
-                FROM trans_alasan
-                WHERE trans_alasan.log_datetime = MIN(transit.trdatetime)
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 1
-                AND trans_alasan.is_deleted = 0
-                LIMIT 1
-            ) AS statuslate,
-            (
-                SELECT trans_alasan.status
-                FROM trans_alasan
-                WHERE trans_alasan.log_datetime = MAX(transit.trdatetime)
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 2
-                AND trans_alasan.is_deleted = 0
-                LIMIT 1
-            ) AS statusearly,
-            (
-                SELECT trans_alasan.status
-                FROM trans_alasan
-                WHERE trans_alasan.log_datetime = calendars.fulldate
-                AND trans_alasan.idpeg = ?
-                AND trans_alasan.jenisalasan_id = 3
-                AND trans_alasan.is_deleted = 0
-                LIMIT 1
-            ) AS statusabsent
-        FROM calendars
-        LEFT JOIN transit ON DATE(calendars.fulldate) = DATE(transit.trdate) AND transit.staffid = ?
-        WHERE calendars.fulldate BETWEEN ? AND ?
-        AND calendars.isweekday = 1
-        AND calendars.isholiday = 0
-        GROUP BY calendars.fulldate, calendars.year, calendars.monthname, calendars.dayname, calendars.isweekday, calendars.isholiday, transit.staffid
-        ORDER BY calendars.fulldate ASC", [
-            $userId, $userId, $userId, $userId, $userId, $userId, $userId, $staffId, $startDay, $lastDay
+        calendars.fulldate,
+        calendars.year,
+        calendars.monthname,
+        calendars.dayname,
+        calendars.isweekday,
+        calendars.isholiday,
+        transit.staffid,
+        ? AS idpeg,
+        MIN(transit.trdatetime) AS datetimein,
+        DATE_FORMAT(MIN(transit.trdatetime), '%T') AS timein,
+        MAX(transit.trdatetime) AS datetimeout,
+        DATE_FORMAT(MAX(transit.trdatetime), '%T') AS timeout,
+        CASE
+            WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND TIME(MIN(transit.trdatetime)) >= '09:01:01' THEN 1
+            ELSE 0
+        END AS latein,
+        CASE
+            WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND MAX(transit.ramadhan_yt) = 0 AND TIME(MAX(transit.trdatetime)) <= '18:00:00'
+                 AND (HOUR(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime)))) > (HOUR(MAX(transit.trdatetime)) * 60 + MINUTE(MAX(transit.trdatetime)))
+            THEN 1
+            WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND MAX(transit.ramadhan_yt) = 0 AND (TIME(MIN(transit.trdatetime)) = TIME(MAX(transit.trdatetime)) OR TIME(MAX(transit.trdatetime)) <= '16:30:00') THEN 1
+            WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND MAX(transit.ramadhan_yt) = 1 AND TIME(MAX(transit.trdatetime)) <= '18:00:00'
+                 AND (HOUR(TIMESTAMPADD(MINUTE, 510, MIN(transit.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 510, MIN(transit.trdatetime)))) > (HOUR(MAX(transit.trdatetime)) * 60 + MINUTE(MAX(transit.trdatetime)))
+            THEN 1
+            WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND MAX(transit.ramadhan_yt) = 1 AND (TIME(MIN(transit.trdatetime)) = TIME(MAX(transit.trdatetime)) OR TIME(MAX(transit.trdatetime)) <= '16:00:00') THEN 1
+            ELSE 0
+        END AS earlyout,
+        (
+            SELECT alasan.diskripsi
+            FROM trans_alasan
+            LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
+            WHERE trans_alasan.log_datetime = MIN(transit.trdatetime)
+            AND trans_alasan.idpeg = ?
+            AND trans_alasan.jenisalasan_id = 1
+            AND trans_alasan.is_deleted = 0
+            LIMIT 1
+        ) AS latereason,
+        (
+            SELECT alasan.diskripsi
+            FROM trans_alasan
+            LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
+            WHERE trans_alasan.log_datetime = MAX(transit.trdatetime)
+            AND trans_alasan.idpeg = ?
+            AND trans_alasan.jenisalasan_id = 2
+            AND trans_alasan.is_deleted = 0
+            LIMIT 1
+        ) AS earlyreason,
+        (
+            SELECT alasan.diskripsi
+            FROM trans_alasan
+            LEFT JOIN alasan ON trans_alasan.alasan_id = alasan.id
+            WHERE trans_alasan.log_datetime = calendars.fulldate
+            AND trans_alasan.idpeg = ?
+            AND trans_alasan.jenisalasan_id = 3
+            AND trans_alasan.is_deleted = 0
+            LIMIT 1
+        ) AS absentreasont,
+        (
+            SELECT trans_alasan.status
+            FROM trans_alasan
+            WHERE trans_alasan.log_datetime = MIN(transit.trdatetime)
+            AND trans_alasan.idpeg = ?
+            AND trans_alasan.jenisalasan_id = 1
+            AND trans_alasan.is_deleted = 0
+            LIMIT 1
+        ) AS statuslate,
+        (
+            SELECT trans_alasan.status
+            FROM trans_alasan
+            WHERE trans_alasan.log_datetime = MAX(transit.trdatetime)
+            AND trans_alasan.idpeg = ?
+            AND trans_alasan.jenisalasan_id = 2
+            AND trans_alasan.is_deleted = 0
+            LIMIT 1
+        ) AS statusearly,
+        (
+            SELECT trans_alasan.status
+            FROM trans_alasan
+            WHERE trans_alasan.log_datetime = calendars.fulldate
+            AND trans_alasan.idpeg = ?
+            AND trans_alasan.jenisalasan_id = 3
+            AND trans_alasan.is_deleted = 0
+            LIMIT 1
+        ) AS statusabsent
+    FROM calendars
+    LEFT JOIN transit ON DATE(calendars.fulldate) = DATE(transit.trdate) AND transit.staffid = ?
+    WHERE calendars.fulldate BETWEEN ? AND ?
+    AND calendars.isweekday = 1
+    AND calendars.isholiday = 0
+    GROUP BY calendars.fulldate, calendars.year, calendars.monthname, calendars.dayname, calendars.isweekday, calendars.isholiday, transit.staffid
+    ORDER BY calendars.fulldate ASC", [
+            $userId,
+            $userId,
+            $userId,
+            $userId,
+            $userId,
+            $userId,
+            $userId,
+            $staffId,
+            $startDay,
+            $lastDay
         ]);
-    
+
         return collect($results)
-        ->filter(function ($record) {
-            return $record->latein == 1
-                || $record->earlyout == 1
-                || !is_null($record->statuslate)
-                || !is_null($record->statusearly)
-                || !is_null($record->statusabsent);
-        })
-        ->map(function ($record) {
-            $record->date_display = date('d/m/Y', strtotime($record->fulldate));
-            $record->box_color = $this->determineBoxColor(
-                $record->statusabsent ?? $record->statuslate ?? $record->statusearly
-            );
-            return (array) $record;
-        })
-        ->values()
-        ->toArray();
+            ->filter(function ($record) {
+                return $record->latein == 1
+                    || $record->earlyout == 1
+                    || !is_null($record->statuslate)
+                    || !is_null($record->statusearly)
+                    || !is_null($record->statusabsent);
+            })
+            ->map(function ($record) {
+                $record->date_display = date('d/m/Y', strtotime($record->fulldate));
+                $record->box_color = $this->determineBoxColor(
+                    $record->statusabsent ?? $record->statuslate ?? $record->statusearly
+                );
+                return (array) $record;
+            })
+            ->values()
+            ->toArray();
     }
+
     
     
 
