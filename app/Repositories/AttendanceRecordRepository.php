@@ -162,122 +162,19 @@ class AttendanceRecordRepository
 
     public function getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDay)
     {
-        Log::info('Fetching attendance records', [
+        Log::info('Fetching combined attendance records (late, early, absent)', [
             'userId' => $userId,
             'staffId' => $staffId,
             'startDay' => $startDay,
             'lastDay' => $lastDay,
         ]);
-
-        $results = DB::select("
-            SELECT 
-                calendars.fulldate,
-                calendars.year,
-                calendars.monthname,
-                calendars.dayname,
-                calendars.isweekday,
-                calendars.isholiday,
-                t.staffid,
-                ? AS idpeg,
-                t.datetimein,
-                DATE_FORMAT(t.datetimein, '%T') AS timein,
-                t.datetimeout,
-                DATE_FORMAT(t.datetimeout, '%T') AS timeout,
-                CASE
-                    WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND TIME(t.datetimein) >= '09:01:01' THEN 1
-                    ELSE 0
-                END AS latein,
-                CASE
-                    WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND t.ramadhan_yt = 0 AND TIME(t.datetimeout) <= '18:00:00'
-                         AND (HOUR(TIMESTAMPADD(MINUTE, 540, t.datetimein)) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 540, t.datetimein))) > (HOUR(t.datetimeout) * 60 + MINUTE(t.datetimeout))
-                    THEN 1
-                    WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND t.ramadhan_yt = 0 AND (TIME(t.datetimein) = TIME(t.datetimeout) OR TIME(t.datetimeout) <= '16:30:00') THEN 1
-                    WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND t.ramadhan_yt = 1 AND TIME(t.datetimeout) <= '18:00:00'
-                         AND (HOUR(TIMESTAMPADD(MINUTE, 510, t.datetimein)) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 510, t.datetimein))) > (HOUR(t.datetimeout) * 60 + MINUTE(t.datetimeout))
-                    THEN 1
-                    WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND t.ramadhan_yt = 1 AND (TIME(t.datetimein) = TIME(t.datetimeout) OR TIME(t.datetimeout) <= '16:00:00') THEN 1
-                    ELSE 0
-                END AS earlyout,
-                late_alasan.diskripsi AS latereason,
-                early_alasan.diskripsi AS earlyreason,
-                absent_alasan.diskripsi AS absentreasont,
-                late_alasan.status AS statuslate,
-                early_alasan.status AS statusearly,
-                absent_alasan.status AS statusabsent
-            FROM calendars
-            LEFT JOIN (
-                SELECT 
-                    staffid,
-                    DATE(trdate) AS logdate,
-                    MIN(trdatetime) AS datetimein,
-                    MAX(trdatetime) AS datetimeout,
-                    MAX(ramadhan_yt) AS ramadhan_yt
-                FROM transit
-                WHERE staffid = ?
-                GROUP BY staffid, DATE(trdate)
-            ) AS t ON DATE(calendars.fulldate) = t.logdate
-            LEFT JOIN (
-                SELECT 
-                    log_datetime, 
-                    diskripsi, 
-                    status
-                FROM trans_alasan
-                LEFT JOIN alasan ON alasan.id = trans_alasan.alasan_id
-                WHERE idpeg = ? AND jenisalasan_id = 1 AND trans_alasan.is_deleted = 0
-            ) AS late_alasan ON late_alasan.log_datetime = t.datetimein
-            LEFT JOIN (
-                SELECT 
-                    log_datetime, 
-                    diskripsi, 
-                    status
-                FROM trans_alasan
-                LEFT JOIN alasan ON alasan.id = trans_alasan.alasan_id
-                WHERE idpeg = ? AND jenisalasan_id = 2 AND trans_alasan.is_deleted = 0
-            ) AS early_alasan ON early_alasan.log_datetime = t.datetimeout
-            LEFT JOIN (
-                SELECT 
-                    log_datetime, 
-                    diskripsi, 
-                    status
-                FROM trans_alasan
-                LEFT JOIN alasan ON alasan.id = trans_alasan.alasan_id
-                WHERE idpeg = ? AND jenisalasan_id = 3 AND trans_alasan.is_deleted = 0
-            ) AS absent_alasan ON absent_alasan.log_datetime = calendars.fulldate
-            WHERE calendars.fulldate BETWEEN ? AND ?
-            AND calendars.isweekday = 1
-            AND calendars.isholiday = 0
-            ORDER BY calendars.fulldate ASC
-        ", [
-            $userId, // idpeg
-            $staffId, // transit staffid
-            $userId, // late alasan
-            $userId, // early alasan
-            $userId, // absent alasan
-            $startDay,
-            $lastDay
-        ]);
-
-        return collect($results)
-            ->filter(function ($record) {
-                return $record->latein == 1
-                    || $record->earlyout == 1
-                    || !is_null($record->statuslate)
-                    || !is_null($record->statusearly)
-                    || !is_null($record->statusabsent);
-            })
-            ->map(function ($record) {
-                $record->date_display = date('d/m/Y', strtotime($record->fulldate));
-                $record->box_color = $this->determineBoxColor(
-                    $record->statusabsent ?? $record->statuslate ?? $record->statusearly
-                );
-                return (array) $record;
-            })
-            ->values()
-            ->toArray();
+    
+        $lateRecords = $this->fetchLateAttendanceRecords($userId, $startDay, $lastDay);
+        $earlyRecords = $this->fetchEarlyLeaveRecords($userId, $startDay, $lastDay);
+        $absentRecords = $this->fetchAbsentRecords($userId);
+    
+        return array_merge($lateRecords, $earlyRecords, $absentRecords);
     }
-
-
-
 
 
 
@@ -365,6 +262,7 @@ class AttendanceRecordRepository
         return $records->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->fulldate));
             $record->box_color = $this->determineBoxColor($record->statuslate);
+            $record->lewat_tanpa_sebab = true;
             return (array) $record;
         })->toArray();
     }
@@ -467,6 +365,7 @@ class AttendanceRecordRepository
                 'catatan_peg' => $record->catatan_peg ?? null, // Dynamically fetched field
                 'date_display' => date('d/m/Y', strtotime($record->fulldate)),
                 'box_color' => $this->determineBoxColor($record->statusabsent),
+                'tidak_hadir_tanpa_sebab' => true,
             ];
         })->toArray();
     }
@@ -542,6 +441,7 @@ class AttendanceRecordRepository
         return $records->map(function ($record) {
             $record->date_display = date('d/m/Y', strtotime($record->trdate));
             $record->box_color = $this->determineBoxColor($record->statusearly);
+            $record->balik_awal_tanpa_sebab = true;
             return (array) $record;
         })->toArray();
     }
