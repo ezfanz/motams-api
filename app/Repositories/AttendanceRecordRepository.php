@@ -160,24 +160,53 @@ class AttendanceRecordRepository
             ->toArray();
     }
 
-    public function getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDay)
-    {
-        Log::info('Fetching combined attendance records (late, early, absent)', [
-            'userId' => $userId,
-            'staffId' => $staffId,
-            'startDay' => $startDay,
-            'lastDay' => $lastDay,
-        ]);
+    /**
+     * Get attendance records with details for a specific user and date range.
+     *
+     * @param int $userId
+     * @param int $staffId
+     * @param string $startDay
+     * @param string $lastDay
+     * @return array
+     */
+
+     public function getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDay)
+     {
+         Log::info('Fetching combined attendance records (late, early, absent)', [
+             'userId' => $userId,
+             'staffId' => $staffId,
+             'startDay' => $startDay,
+             'lastDay' => $lastDay,
+         ]);
+     
+         $lateRecords = $this->fetchLateAttendanceRecords($userId, $startDay, $lastDay);
+         $earlyRecords = $this->fetchEarlyLeaveRecords($userId, $startDay, $lastDay);
+         $absentRecords = $this->fetchAbsentRecords($userId);
+     
+         $combined = array_merge($lateRecords, $earlyRecords, $absentRecords);
+     
+         usort($combined, function ($a, $b) {
+             $dateA = $a['fulldate'] ?? $a['trdate'] ?? null;
+             $dateB = $b['fulldate'] ?? $b['trdate'] ?? null;
+     
+             if (!$dateA || !$dateB) return 0;
+     
+             return strtotime($dateB) <=> strtotime($dateA); 
+         });
+     
+         return $combined;
+     }
+     
     
-        $lateRecords = $this->fetchLateAttendanceRecords($userId, $startDay, $lastDay);
-        $earlyRecords = $this->fetchEarlyLeaveRecords($userId, $startDay, $lastDay);
-        $absentRecords = $this->fetchAbsentRecords($userId);
+    /**
+     * Fetch late attendance records.
+     *
+     * @param int $userId
+     * @param string $startDay
+     * @param string $lastDay
+     * @return array
+     */
     
-        return array_merge($lateRecords, $earlyRecords, $absentRecords);
-    }
-
-
-
     public function fetchLateAttendanceRecords(int $userId, string $startDay, string $lastDay): array
     {
         // Fetch the staff ID for the given user
@@ -255,7 +284,7 @@ class AttendanceRecordRepository
                 't.staffid'
             )
             ->havingRaw('TIME(MIN(t.trdatetime)) >= "09:01:00"')
-            ->orderBy('c.fulldate', 'ASC')
+            ->orderBy('c.fulldate', 'DESC')
             ->get();
 
         // Map records for display and apply box color logic
@@ -346,7 +375,7 @@ class AttendanceRecordRepository
                     ->whereRaw('DATE(transit.trdate) = DATE(calendars.fulldate)')
                     ->where('transit.staffid', '=', $idStaff);
             }) // Ensure NO transit records exist
-            ->orderBy('calendars.fulldate', 'ASC')
+            ->orderBy('calendars.fulldate', 'DESC')
             ->get();
 
         // Format response
@@ -434,7 +463,7 @@ class AttendanceRecordRepository
             ->where('l.earlyout', 1)
             ->where('l.isweekday', 1)
             ->where('l.isholiday', 0)
-            ->orderBy('l.trdate', 'ASC')
+            ->orderBy('l.trdate', 'DESC')
             ->get();
 
         // Format results
