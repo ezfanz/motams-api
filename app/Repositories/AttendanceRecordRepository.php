@@ -170,32 +170,46 @@ class AttendanceRecordRepository
      * @return array
      */
 
-     public function getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDay)
-     {
-         Log::info('Fetching combined attendance records (late, early, absent)', [
-             'userId' => $userId,
-             'staffId' => $staffId,
-             'startDay' => $startDay,
-             'lastDay' => $lastDay,
-         ]);
+    //  public function getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDay)
+    //  {
+    //      Log::info('Fetching combined attendance records (late, early, absent)', [
+    //          'userId' => $userId,
+    //          'staffId' => $staffId,
+    //          'startDay' => $startDay,
+    //          'lastDay' => $lastDay,
+    //      ]);
      
-         $lateRecords = $this->fetchLateAttendanceRecords($userId, $startDay, $lastDay);
-         $earlyRecords = $this->fetchEarlyLeaveRecords($userId, $startDay, $lastDay);
-         $absentRecords = $this->fetchAbsentRecords($userId);
+    //      $lateRecords = $this->fetchLateAttendanceRecords($userId, $startDay, $lastDay);
+    //      $earlyRecords = $this->fetchEarlyLeaveRecords($userId, $startDay, $lastDay);
+    //      $absentRecords = $this->fetchAbsentRecords($userId);
      
-         $combined = array_merge($lateRecords, $earlyRecords, $absentRecords);
+    //      $combined = array_merge($lateRecords, $earlyRecords, $absentRecords);
      
-         usort($combined, function ($a, $b) {
-             $dateA = $a['fulldate'] ?? $a['trdate'] ?? null;
-             $dateB = $b['fulldate'] ?? $b['trdate'] ?? null;
+    //      usort($combined, function ($a, $b) {
+    //          $dateA = $a['fulldate'] ?? $a['trdate'] ?? null;
+    //          $dateB = $b['fulldate'] ?? $b['trdate'] ?? null;
      
-             if (!$dateA || !$dateB) return 0;
+    //          if (!$dateA || !$dateB) return 0;
      
-             return strtotime($dateB) <=> strtotime($dateA); 
-         });
+    //          return strtotime($dateB) <=> strtotime($dateA); 
+    //      });
      
-         return $combined;
-     }
+    //      return $combined;
+    //  }
+
+    public function getAttendanceRecordsWithDetails($userId, $staffId, $startDay, $lastDay)
+    {
+        Log::info('Fetching combined attendance records (unified)', [
+            'userId' => $userId,
+            'staffId' => $staffId,
+            'startDay' => $startDay,
+            'lastDay' => $lastDay,
+        ]);
+    
+        // Use the unified query method
+        return $this->getAttendanceRecordsUnified($userId, $staffId, $startDay, $lastDay);
+    }
+    
      
     
     /**
@@ -687,6 +701,114 @@ class AttendanceRecordRepository
                 'statusText' => Status::getStatusName($record->status),
             ];
         })->toArray();
+    }
+
+
+    public function getAttendanceRecordsUnified($userId, $staffId, $startDay, $lastDay)
+    {
+        Log::info('Fetching unified attendance records (late, early, absent)', [
+            'userId' => $userId,
+            'staffId' => $staffId,
+            'startDay' => $startDay,
+            'lastDay' => $lastDay,
+        ]);
+    
+        $records = DB::table('calendars')
+            ->leftJoin('transit', function ($join) use ($staffId) {
+                $join->on(DB::raw('DATE(calendars.fulldate)'), '=', DB::raw('DATE(transit.trdate)'))
+                    ->where('transit.staffid', '=', $staffId);
+            })
+            ->select(
+                'calendars.fulldate',
+                'calendars.year',
+                'calendars.monthname',
+                'calendars.dayname',
+                'calendars.isweekday',
+                'calendars.isholiday',
+                DB::raw("$staffId AS staffid"),
+                DB::raw("$userId AS idpeg"),
+                DB::raw('MIN(transit.trdatetime) AS datetimein'),
+                DB::raw("DATE_FORMAT(MIN(transit.trdatetime), '%T') AS timein"),
+                DB::raw('MAX(transit.trdatetime) AS datetimeout'),
+                DB::raw("DATE_FORMAT(MAX(transit.trdatetime), '%T') AS timeout"),
+                DB::raw("CASE
+                    WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND TIME(MIN(transit.trdatetime)) >= '09:01:00' THEN 1
+                    ELSE 0 END AS latein"),
+                DB::raw("CASE
+                    WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND COALESCE(MAX(transit.ramadhan_yt), 0) = 0 AND TIME(MAX(transit.trdatetime)) <= '18:00:00'
+                        AND (HOUR(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 540, MIN(transit.trdatetime)))) > (HOUR(MAX(transit.trdatetime)) * 60 + MINUTE(MAX(transit.trdatetime)))
+                        THEN 1
+                    WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND COALESCE(MAX(transit.ramadhan_yt), 0) = 0
+                        AND (TIME(MIN(transit.trdatetime)) = TIME(MAX(transit.trdatetime)) OR TIME(MAX(transit.trdatetime)) <= '16:30:00') THEN 1
+                    WHEN calendars.isweekday = 1 AND calendars.isholiday = 0 AND COALESCE(MAX(transit.ramadhan_yt), 0) = 1 AND TIME(MAX(transit.trdatetime)) <= '18:00:00'
+                        AND (HOUR(TIMESTAMPADD(MINUTE, 510, MIN(transit.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 510, MIN(transit.trdatetime)))) > (HOUR(MAX(transit.trdatetime)) * 60 + MINUTE(MAX(transit.trdatetime)))
+                        THEN 1
+                    WHEN calendars.isholiday = 0 AND calendars.isweekday = 1 AND COALESCE(MAX(transit.ramadhan_yt), 0) = 1
+                        AND (TIME(MIN(transit.trdatetime)) = TIME(MAX(transit.trdatetime)) OR TIME(MAX(transit.trdatetime)) <= '16:00:00') THEN 1
+                    ELSE 0 END AS earlyout"),
+                DB::raw("(SELECT a.diskripsi FROM trans_alasan ta LEFT JOIN alasan a ON ta.alasan_id = a.id
+                          WHERE ta.log_datetime = MIN(transit.trdatetime) AND ta.idpeg = $userId AND ta.jenisalasan_id = 1 AND ta.is_deleted = 0 LIMIT 1) AS latereason"),
+                DB::raw("(SELECT a.diskripsi FROM trans_alasan ta LEFT JOIN alasan a ON ta.alasan_id = a.id
+                          WHERE ta.log_datetime = MAX(transit.trdatetime) AND ta.idpeg = $userId AND ta.jenisalasan_id = 2 AND ta.is_deleted = 0 LIMIT 1) AS earlyreason"),
+                DB::raw("(SELECT a.diskripsi FROM trans_alasan ta LEFT JOIN alasan a ON ta.alasan_id = a.id
+                          WHERE ta.log_datetime = calendars.fulldate AND ta.idpeg = $userId AND ta.jenisalasan_id = 3 AND ta.is_deleted = 0 LIMIT 1) AS absentreasont"),
+                DB::raw("(SELECT ta.status FROM trans_alasan ta
+                          WHERE ta.log_datetime = MIN(transit.trdatetime) AND ta.idpeg = $userId AND ta.jenisalasan_id = 1 AND ta.is_deleted = 0 LIMIT 1) AS statuslate"),
+                DB::raw("(SELECT ta.status FROM trans_alasan ta
+                          WHERE ta.log_datetime = MAX(transit.trdatetime) AND ta.idpeg = $userId AND ta.jenisalasan_id = 2 AND ta.is_deleted = 0 LIMIT 1) AS statusearly"),
+                DB::raw("(SELECT ta.status FROM trans_alasan ta
+                          WHERE ta.log_datetime = calendars.fulldate AND ta.idpeg = $userId AND ta.jenisalasan_id = 3 AND ta.is_deleted = 0 LIMIT 1) AS statusabsent")
+            )
+            ->whereBetween('calendars.fulldate', [$startDay, $lastDay])
+            ->where('calendars.isweekday', 1)
+            ->where('calendars.isholiday', 0)
+            ->groupBy(
+                'calendars.fulldate',
+                'calendars.year',
+                'calendars.monthname',
+                'calendars.dayname',
+                'calendars.isweekday',
+                'calendars.isholiday',
+                'transit.staffid'
+            )
+            ->orderBy('calendars.fulldate', 'DESC')
+            ->get();
+    
+        return $records->map(function ($record) {
+            $recordArray = (array) $record;
+    
+            $recordArray['date_display'] = date('d/m/Y', strtotime($record->fulldate));
+            $recordArray['box_color'] = $this->determineBoxColorUnified($record);
+    
+            if ($record->latein) {
+                $recordArray['lewat_tanpa_sebab'] = true;
+            }
+    
+            if ($record->earlyout) {
+                $recordArray['balik_awal_tanpa_sebab'] = true;
+            }
+    
+            // If no punch at all
+            if (!$record->datetimein && !$record->datetimeout) {
+                $recordArray['tidak_hadir_tanpa_sebab'] = true;
+            }
+    
+            return $recordArray;
+        })->toArray();
+    }
+    
+
+
+    private function determineBoxColorUnified($record)
+    {
+        $status = $record->statuslate ?? $record->statusearly ?? $record->statusabsent;
+
+        return match ($status) {
+            4 => '#28a745', // green
+            2 => '#17a2b8', // blue
+            1, 3, 5 => '#ffc107', // yellow
+            default => '#dc3545', // red
+        };
     }
 
 
