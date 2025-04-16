@@ -421,12 +421,12 @@ class AttendanceRecordRepository
     public function fetchEarlyLeaveRecords(int $userId, string $startDay, string $lastDay): array
     {
         $idStaff = User::where('is_deleted', '!=', 1)->where('id', $userId)->value('staffid');
-
+    
         if (!$idStaff) {
             Log::error("Error: Staff ID not found for user ID: $userId");
             return [];
         }
-
+    
         $records = DB::table('calendars AS c')
             ->leftJoin('transit AS t', function ($join) use ($idStaff) {
                 $join->on(DB::raw('DATE(c.fulldate)'), '=', DB::raw('DATE(t.trdate)'))
@@ -442,34 +442,19 @@ class AttendanceRecordRepository
                 DB::raw('MAX(t.trdatetime) AS datetimeout'),
                 DB::raw("DATE_FORMAT(MAX(t.trdatetime), '%T') AS timeout"),
                 DB::raw("CASE
-                WHEN c.isweekday = 1 AND c.isholiday = 0 AND COALESCE(MAX(t.ramadhan_yt), 0) = 0 AND TIME(MAX(t.trdatetime)) <= '18:00:00'
-                     AND (HOUR(TIMESTAMPADD(MINUTE, 540, MIN(t.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 540, MIN(t.trdatetime)))) > (HOUR(MAX(t.trdatetime)) * 60 + MINUTE(MAX(t.trdatetime)))
-                THEN 1
-                WHEN c.isholiday = 0 AND c.isweekday = 1 AND COALESCE(MAX(t.ramadhan_yt), 0) = 0 AND (TIME(MIN(t.trdatetime)) = TIME(MAX(t.trdatetime)) OR TIME(MAX(t.trdatetime)) <= '16:30:00') THEN 1
-                WHEN c.isweekday = 1 AND c.isholiday = 0 AND COALESCE(MAX(t.ramadhan_yt), 0) = 1 AND TIME(MAX(t.trdatetime)) <= '18:00:00'
-                     AND (HOUR(TIMESTAMPADD(MINUTE, 510, MIN(t.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 510, MIN(t.trdatetime)))) > (HOUR(MAX(t.trdatetime)) * 60 + MINUTE(MAX(t.trdatetime)))
-                THEN 1
-                WHEN c.isholiday = 0 AND c.isweekday = 1 AND COALESCE(MAX(t.ramadhan_yt), 0) = 1 AND (TIME(MIN(t.trdatetime)) = TIME(MAX(t.trdatetime)) OR TIME(MAX(t.trdatetime)) <= '16:00:00') THEN 1
-                ELSE 0 END AS earlyout"),
-                DB::raw("(
-                SELECT a.diskripsi FROM trans_alasan AS ta
-                LEFT JOIN alasan AS a ON ta.alasan_id = a.id
-                WHERE ta.log_datetime = MAX(t.trdatetime)
-                    AND ta.idpeg = $userId AND ta.jenisalasan_id = 2 AND ta.is_deleted = 0
-                LIMIT 1
-            ) AS earlyreason"),
-                DB::raw("(
-                SELECT ta.status FROM trans_alasan AS ta
-                WHERE ta.log_datetime = MAX(t.trdatetime)
-                    AND ta.idpeg = $userId AND ta.jenisalasan_id = 2 AND ta.is_deleted = 0
-                LIMIT 1
-            ) AS statusearly"),
-                DB::raw("(
-                SELECT ta.catatan_peg FROM trans_alasan AS ta
-                WHERE ta.log_datetime = MAX(t.trdatetime)
-                    AND ta.idpeg = $userId AND ta.jenisalasan_id = 2 AND ta.is_deleted = 0
-                LIMIT 1
-            ) AS catatan_peg")
+                    WHEN c.isweekday = 1 AND c.isholiday = 0 AND COALESCE(MAX(t.ramadhan_yt), 0) = 0 AND TIME(MAX(t.trdatetime)) <= '18:00:00'
+                        AND (HOUR(TIMESTAMPADD(MINUTE, 540, MIN(t.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 540, MIN(t.trdatetime)))) > (HOUR(MAX(t.trdatetime)) * 60 + MINUTE(MAX(t.trdatetime)))
+                    THEN 1
+                    WHEN c.isholiday = 0 AND c.isweekday = 1 AND COALESCE(MAX(t.ramadhan_yt), 0) = 0
+                        AND (TIME(MIN(t.trdatetime)) = TIME(MAX(t.trdatetime)) OR TIME(MAX(t.trdatetime)) <= '16:30:00')
+                    THEN 1
+                    WHEN c.isweekday = 1 AND c.isholiday = 0 AND COALESCE(MAX(t.ramadhan_yt), 0) = 1 AND TIME(MAX(t.trdatetime)) <= '18:00:00'
+                        AND (HOUR(TIMESTAMPADD(MINUTE, 510, MIN(t.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 510, MIN(t.trdatetime)))) > (HOUR(MAX(t.trdatetime)) * 60 + MINUTE(MAX(t.trdatetime)))
+                    THEN 1
+                    WHEN c.isholiday = 0 AND c.isweekday = 1 AND COALESCE(MAX(t.ramadhan_yt), 0) = 1
+                        AND (TIME(MIN(t.trdatetime)) = TIME(MAX(t.trdatetime)) OR TIME(MAX(t.trdatetime)) <= '16:00:00')
+                    THEN 1
+                    ELSE 0 END AS earlyout")
             )
             ->whereBetween('c.fulldate', [$startDay, $lastDay])
             ->where('c.isweekday', 1)
@@ -479,8 +464,13 @@ class AttendanceRecordRepository
             ->having('earlyout', '=', 1)
             ->orderByDesc('c.fulldate')
             ->get();
-
-        return $records->map(function ($record) {
+    
+        return $records->map(function ($record) use ($userId) {
+            // Fetch reason/status/catatan separately
+            $earlyReason = $this->getAlasanField($record->datetimeout, $userId, 2, 'diskripsi');
+            $statusEarly = $this->getAlasanField($record->datetimeout, $userId, 2, 'status');
+            $catatanPeg  = $this->getAlasanField($record->datetimeout, $userId, 2, 'catatan_peg');
+    
             return [
                 'staffid' => $record->staffid,
                 'day' => $record->day,
@@ -490,17 +480,16 @@ class AttendanceRecordRepository
                 'datetimeout' => $record->datetimeout,
                 'timeout' => $record->timeout,
                 'idpeg' => $record->idpeg,
-                'earlyreason' => $record->earlyreason,
-                'statusearly' => $record->statusearly,
-                'catatan_peg' => $record->catatan_peg,
+                'earlyreason' => $earlyReason,
+                'statusearly' => $statusEarly,
+                'catatan_peg' => $catatanPeg,
                 'date_display' => date('d/m/Y', strtotime($record->fulldate)),
-                'box_color' => $this->determineBoxColor($record->statusearly),
+                'box_color' => $this->determineBoxColor($statusEarly),
                 'balik_awal_tanpa_sebab' => true
             ];
         })->toArray();
     }
-
-
+    
 
 
     private function determineBoxColor($status = null)
@@ -852,4 +841,16 @@ class AttendanceRecordRepository
             default => 'Tidak Valid',
         };
     }
+
+    private function getAlasanField($datetime, $userId, $jenisAlasanId, $column)
+    {
+        return DB::table('trans_alasan as ta')
+            ->leftJoin('alasan as a', 'ta.alasan_id', '=', 'a.id')
+            ->where('ta.log_datetime', $datetime)
+            ->where('ta.idpeg', $userId)
+            ->where('ta.jenisalasan_id', $jenisAlasanId)
+            ->where('ta.is_deleted', 0)
+            ->value($column);
+    }
+
 }
