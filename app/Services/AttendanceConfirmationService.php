@@ -67,9 +67,9 @@ class AttendanceConfirmationService
         ]);
 
         $message = match ($data['status_pengesah']) {
-            4 => 'Proses kemaskini rekod berjaya dan makluman pengesahan telah dihantar ke Pegawai Seliaan.',
-            5 => 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.',
-            6 => 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.',
+            4 => 'Proses kemaskini rekod berjaya',
+            5 => 'Proses kemaskini rekod berjaya.',
+            6 => 'Proses kemaskini rekod berjaya.',
             default => 'Kemaskini tidak diketahui.',
         };
 

@@ -43,8 +43,8 @@ class OfficeLeaveApprovalService
 
         if ($result) {
             $message = $approvalStatus == 16
-                ? 'Proses kemaskini rekod berjaya dan makluman kelulusan telah dihantar ke Pegawai Seliaan.'
-                : 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.';
+                ? 'Proses kemaskini rekod berjaya.'
+                : 'Proses kemaskini rekod berjaya.';
 
             return [
                 'status' => 'success',

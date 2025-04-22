@@ -57,9 +57,9 @@ class AttendanceReviewService
     
         // Determine success message based on status
         $message = match ($data['status_penyemak']) {
-            2 => 'Proses kemaskini berjaya dan telah dihantar ke Pegawai Pengesah untuk pengesahan.',
-            3 => 'Proses kemaskini berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.',
-            6 => 'Proses kemaskini berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya (memerlukan maklumat tambahan).',
+            2 => 'Proses kemaskini berjaya.',
+            3 => 'Proses kemaskini berjaya.',
+            6 => 'Proses kemaskini berjaya.',
             default => 'Batch update completed successfully.',
         };
     
@@ -133,14 +133,14 @@ class AttendanceReviewService
         // Handle status-based logic
         switch ($data['status_penyemak']) {
             case 2:
-                $message = 'Proses kemaskini rekod berjaya dan telah dihantar ke Pegawai Pengesah untuk pengesahan';
+                $message = 'Proses kemaskini rekod berjaya';
                 break;
             case 3:
-                $message = 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.';
+                $message = 'Proses kemaskini rekod berjaya.';
                 break;
             case 6:
                 $this->handleNeedMoreInfo($transaction);
-                $message = 'Proses kemaskini rekod berjaya dan telah dihantar semula ke Pegawai Seliaan untuk tindakan selanjutnya.';
+                $message = 'Proses kemaskini rekod berjaya.';
                 break;
             default:
                 $message = 'Transaction updated successfully.';
