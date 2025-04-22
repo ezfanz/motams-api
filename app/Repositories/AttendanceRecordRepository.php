@@ -421,12 +421,14 @@ class AttendanceRecordRepository
     public function fetchEarlyLeaveRecords(int $userId, string $startDay, string $lastDay): array
     {
         $idStaff = User::where('is_deleted', '!=', 1)->where('id', $userId)->value('staffid');
-    
+
         if (!$idStaff) {
             Log::error("Error: Staff ID not found for user ID: $userId");
             return [];
         }
-    
+
+        $today = Carbon::today()->toDateString();
+
         $records = DB::table('calendars AS c')
             ->leftJoin('transit AS t', function ($join) use ($idStaff) {
                 $join->on(DB::raw('DATE(c.fulldate)'), '=', DB::raw('DATE(t.trdate)'))
@@ -460,17 +462,17 @@ class AttendanceRecordRepository
             ->where('c.isweekday', 1)
             ->where('c.isholiday', 0)
             ->whereNotNull('t.trdatetime')
+            ->whereDate('c.fulldate', '<', $today) 
             ->groupBy('c.fulldate', 'c.isweekday', 'c.isholiday', 't.staffid')
             ->having('earlyout', '=', 1)
             ->orderByDesc('c.fulldate')
             ->get();
-    
+
         return $records->map(function ($record) use ($userId) {
-            // Fetch reason/status/catatan separately
             $earlyReason = $this->getAlasanField($record->datetimeout, $userId, 2, 'diskripsi');
             $statusEarly = $this->getAlasanField($record->datetimeout, $userId, 2, 'status');
-            $catatanPeg  = $this->getAlasanField($record->datetimeout, $userId, 2, 'catatan_peg');
-    
+            $catatanPeg = $this->getAlasanField($record->datetimeout, $userId, 2, 'catatan_peg');
+
             return [
                 'staffid' => $record->staffid,
                 'day' => $record->day,
@@ -489,7 +491,8 @@ class AttendanceRecordRepository
             ];
         })->toArray();
     }
-    
+
+
 
 
     private function determineBoxColor($status = null)
