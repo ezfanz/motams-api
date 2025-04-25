@@ -67,10 +67,10 @@ class AttendanceRecordService
             'staffId' => $staffId,
         ]);
 
-        $daynow = \Carbon\Carbon::now()->format('d');
-        $firstDayofCurrentMonth = \Carbon\Carbon::now()->startOfMonth()->toDateTimeString();
-        $firstDayofPreviousMonth = \Carbon\Carbon::now()->subMonthNoOverflow()->startOfMonth()->toDateTimeString();
-        $lastDayofCurrentMonth = \Carbon\Carbon::now()->endOfMonth()->toDateTimeString();
+        $daynow = Carbon::now()->format('d');
+        $firstDayofCurrentMonth = Carbon::now()->startOfMonth()->toDateTimeString();
+        $firstDayofPreviousMonth = Carbon::now()->subMonthNoOverflow()->startOfMonth()->toDateTimeString();
+        $lastDayofCurrentMonth = Carbon::now()->endOfMonth()->toDateTimeString();
 
         $startDay = $daynow > 10 ? $firstDayofCurrentMonth : $firstDayofPreviousMonth;
 

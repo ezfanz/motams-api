@@ -231,6 +231,9 @@ class AttendanceRecordRepository
             return [];
         }
 
+        // Always exclude today’s record
+        $endDay = Carbon::yesterday()->toDateString();
+
         // Query to get late attendance records
         $records = DB::table('calendars AS c')
             ->leftJoin('transit AS t', function ($join) use ($idStaff) {
@@ -284,7 +287,7 @@ class AttendanceRecordRepository
                             LIMIT 1
                         ) AS catatan_peg")
             )
-            ->whereBetween('c.fulldate', [$startDay, $lastDay])
+            ->whereBetween('c.fulldate', [$startDay, $endDay])
             ->where('c.isweekday', 1)
             ->where('c.isholiday', 0)
             ->whereNotNull('t.trdatetime')
@@ -324,6 +327,9 @@ class AttendanceRecordRepository
             return [];
         }
 
+        // Always exclude today’s record
+        $endDay = Carbon::yesterday()->toDateString();
+
         // Get date values
         $dayNow = Carbon::now()->format('d');
         $firstDayOfCurrentMonth = Carbon::now()->startOfMonth()->toDateString();
@@ -332,12 +338,7 @@ class AttendanceRecordRepository
         $today = Carbon::now()->toDateString();
         $yesterday = Carbon::yesterday()->toDateString();
 
-        // Check if there is attendance for today
-        $hasTodayRecord = DB::table('transit')
-            ->whereDate('trdate', $today)
-            ->where('staffid', $idStaff)
-            ->exists();
-
+   
         // Ensure today is excluded from the query
         $endDay = $yesterday; // Always use yesterday to exclude today
 
@@ -427,7 +428,8 @@ class AttendanceRecordRepository
             return [];
         }
 
-        $today = Carbon::today()->toDateString();
+        // Exclude today's date
+        $yesterday = Carbon::yesterday()->toDateString();
 
         $records = DB::table('calendars AS c')
             ->leftJoin('transit AS t', function ($join) use ($idStaff) {
@@ -458,11 +460,10 @@ class AttendanceRecordRepository
                     THEN 1
                     ELSE 0 END AS earlyout")
             )
-            ->whereBetween('c.fulldate', [$startDay, $lastDay])
+            ->whereBetween('c.fulldate', [$startDay, $yesterday])
             ->where('c.isweekday', 1)
             ->where('c.isholiday', 0)
             ->whereNotNull('t.trdatetime')
-            ->whereDate('c.fulldate', '<', $today) 
             ->groupBy('c.fulldate', 'c.isweekday', 'c.isholiday', 't.staffid')
             ->having('earlyout', '=', 1)
             ->orderByDesc('c.fulldate')
