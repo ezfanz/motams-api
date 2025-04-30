@@ -80,7 +80,7 @@ class ComplaintController extends Controller
             'tajuk_aduan' => 'required|string|max:255',
             'catatan_pegawai' => 'nullable|string|max:1000',
             'email' => 'required|email',
-            'recipient_email' => 'required|email', // Dynamic recipient email
+            // 'recipient_email' => 'required|email',
         ]);
 
         // Get authenticated user ID
@@ -115,7 +115,7 @@ class ComplaintController extends Controller
         ];
 
         // Send email with dynamic recipient
-        Mail::to($validated['recipient_email'])->send(new AduanEmail($aduanData, $validated['recipient_email']));
+        Mail::to('msofri@mot.gov.my')->send(new AduanEmail($aduanData, 'msofri@mot.gov.my'));
 
         return response()->json([
             'status' => 'success',

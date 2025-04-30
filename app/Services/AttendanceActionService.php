@@ -42,12 +42,12 @@ class AttendanceActionService
                 'catatanpeg' => $data['catatanpeg'],
             ], 2);
 
-            return $this->response('Record updated successfully.', $boxColor, 200);
+            return $this->response('Rekod berjaya dikemas kini.', $boxColor, 200);
         }
 
         // If no existing record, create a new one
         $this->attendanceActionRepository->createRecord($data, 2);
-        return $this->response('New record created successfully.', $boxColor, 201);
+        return $this->response('Rekod baharu berjaya dibuat.', $boxColor, 201);
     }
 
 
@@ -58,7 +58,7 @@ class AttendanceActionService
             // Convert date format using Carbon::parse()
             $data['fulldate'] = Carbon::parse($data['fulldate'])->format('Y-m-d');
         } catch (\Exception $e) {
-            return $this->response('Invalid date format. Expected format: d/m/Y or Y-m-d.', '#dc3545', 400);
+            return $this->response('Format tarikh tidak sah. Format yang dijangkakan: d/m/Y atau Y-m-d.', '#dc3545', 400);
         }
     
         // Check if a transaction already exists
@@ -78,12 +78,12 @@ class AttendanceActionService
                 'catatanpeg' => $data['catatanpeg'],
             ], 1);
     
-            return $this->response('Late arrival record updated successfully.', $boxColor, 200);
+            return $this->response('Rekod kedatangan lewat berjaya dikemas kini.', $boxColor, 200);
         }
     
         // Create a new record if none exists
         $this->attendanceActionRepository->createRecord($data, 1);
-        return $this->response('New late arrival record created successfully.', $boxColor, 201);
+        return $this->response('Rekod kedatangan lewat baharu berjaya dibuat.', $boxColor, 201);
     }
     
     
@@ -94,7 +94,7 @@ class AttendanceActionService
             // Convert date format using Carbon::parse()
             $data['fulldate'] = Carbon::parse($data['fulldate'])->format('Y-m-d');
         } catch (\Exception $e) {
-            return $this->response('Invalid date format. Expected format: d/m/Y or Y-m-d.', '#dc3545', 400);
+            return $this->response('Format tarikh tidak sah. Format yang dijangkakan: d/m/Y atau Y-m-d.', '#dc3545', 400);
         }
 
         // Check if a transaction already exists
@@ -114,12 +114,12 @@ class AttendanceActionService
                 'catatanpeg' => $data['catatanpeg'],
             ], 3);
 
-            return $this->response('Absent record updated successfully.', $boxColor, 200);
+            return $this->response('Rekod tidak hadir berjaya dikemas kini.', $boxColor, 200);
         }
 
         // If no existing record, create a new one
         $this->attendanceActionRepository->createRecord($data, 3);
-        return $this->response('New absent record created successfully.', $boxColor, 201);
+        return $this->response('Rekod tidak hadir baharu berjaya dibuat.', $boxColor, 201);
     }
 
 

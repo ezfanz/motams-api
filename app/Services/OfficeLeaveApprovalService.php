@@ -54,7 +54,7 @@ class OfficeLeaveApprovalService
 
         return [
             'status' => 'error',
-            'message' => 'Failed to update leave requests.',
+            'message' => 'Gagal mengemas kini permintaan cuti.',
         ];
     }
 
@@ -77,18 +77,18 @@ class OfficeLeaveApprovalService
         $userRole = $this->repository->getUserRole($userId);
 
         if (!in_array($userRole, [3, 6, 7, 9, 10, 12, 13, 16, 17])) {
-            return ['status' => false, 'message' => 'Unauthorized role for approval'];
+            return ['status' => false, 'message' => 'Peranan yang tidak dibenarkan untuk kelulusan'];
         }
 
         // Update Leave Request
         $updated = $this->repository->updateLeaveRequest($leaveId, $userId, $status, $notes, $timestamp);
 
         if ($updated) {
-            $message = $status == 16 ? 'Leave approved successfully.' : 'Leave rejected successfully.';
+            $message = $status == 16 ? 'Cuti diluluskan dengan jayanya.' : 'Cuti berjaya ditolak';
             return ['status' => true, 'message' => $message];
         }
 
-        return ['status' => false, 'message' => 'Failed to process leave approval.'];
+        return ['status' => false, 'message' => 'Gagal memproses kelulusan cuti.'];
     }
 
 

@@ -72,7 +72,7 @@ class AttendanceApprovalService
             4 => 'Proses kemaskini rekod berjaya',
             5 => 'Proses kemaskini rekod berjaya',
             6 => 'Proses kemaskini rekod berjaya',
-            default => 'Kemaskini tidak diketahui.',
+            default => 'Proses kemaskini rekod berjaya',
         };
 
         return ['status' => true, 'message' => $message];
