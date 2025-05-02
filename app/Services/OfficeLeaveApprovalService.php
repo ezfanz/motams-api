@@ -84,7 +84,7 @@ class OfficeLeaveApprovalService
         $updated = $this->repository->updateLeaveRequest($leaveId, $userId, $status, $notes, $timestamp);
 
         if ($updated) {
-            $message = $status == 16 ? 'Cuti diluluskan dengan jayanya.' : 'Cuti berjaya ditolak';
+            $message = $status == 16 ? 'Proses kemaskini rekod berjaya.' : 'Proses kemaskini rekod berjaya';
             return ['status' => true, 'message' => $message];
         }
 

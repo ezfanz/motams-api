@@ -119,7 +119,7 @@ class ComplaintController extends Controller
 
         return response()->json([
             'status' => 'success',
-            'message' => 'Aduan has been sent successfully.',
+            'message' => 'Aduan Berjaya Dihantar.',
         ]);
     }
 

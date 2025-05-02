@@ -214,7 +214,7 @@ class UserService
             // Extract value from query result
             $remainingHours = $result[0]->remaining_hours ?? null;
 
-            \Log::info("Raw remaining_hours from DB: " . json_encode($remainingHours));
+            Log::info("Raw remaining_hours from DB: " . json_encode($remainingHours));
 
             if ($remainingHours !== null) {
                 $hours = floor($remainingHours);
@@ -231,7 +231,7 @@ class UserService
             }
         }
 
-        \Log::info("Formatted Remaining Hours: " . json_encode($remainingHours));
+        Log::info("Formatted Remaining Hours: " . json_encode($remainingHours));
 
         // Get today's attendance log
         $datenow = now()->format('Y-m-d');
@@ -312,7 +312,11 @@ class UserService
 
     public function getAttendanceSummary($idstaff, $idpeg)
     {
-        $startDate = now()->startOfMonth()->toDateString(); // Start from beginning of the month
+        $daynow = now()->format('d');
+        $firstDayOfCurrentMonth = now()->startOfMonth()->toDateString();
+        $firstDayOfPreviousMonth = now()->subMonthNoOverflow()->startOfMonth()->toDateString();
+        $startDate = $daynow > 10 ? $firstDayOfCurrentMonth : $firstDayOfPreviousMonth;
+
         $yesterday = Carbon::yesterday()->toDateString(); // Exclude today's date
     
         // Query for lateness & early out
@@ -339,14 +343,54 @@ class UserService
             ->get();
 
         // Fetch early out records (excluding today)
-        $earlyOutCount = DB::lateinoutviewFix("
-        SELECT COUNT(*) as total FROM lateinoutview 
-        WHERE CAST(staffid AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_general_ci = $idstaff
-        AND trdate BETWEEN '$startDate' AND '$yesterday'
-        AND earlyout = 1
-        AND isweekday = 1
-        AND isholiday = 0
-    ")[0]->total;
+        //     $earlyOutCount = DB::lateinoutviewFix("
+        //     SELECT COUNT(*) as total FROM lateinoutview 
+        //     WHERE CAST(staffid AS CHAR CHARACTER SET utf8mb4) COLLATE utf8mb4_general_ci = $idstaff
+        //     AND trdate BETWEEN '$startDate' AND '$yesterday'
+        //     AND earlyout = 1
+        //     AND isweekday = 1
+        //     AND isholiday = 0
+        // ")[0]->total;
+
+        /*Fetch early out records with Ramadhan logic (excluding today) */
+            $earlyOutCount = DB::select("
+            SELECT COUNT(*) as total
+            FROM (
+                SELECT c.fulldate
+                FROM calendars c
+                LEFT JOIN transit t ON DATE(c.fulldate) = DATE(t.trdate)
+                    AND t.staffid = '$idstaff'
+                WHERE c.fulldate BETWEEN '$startDate' AND '$yesterday'
+                AND c.isweekday = 1
+                AND c.isholiday = 0
+                GROUP BY c.fulldate
+                HAVING
+                    (
+                        MAX(t.ramadhan_yt) = 0
+                        AND TIME(MAX(t.trdatetime)) <= '18:00:00'
+                        AND (
+                            (HOUR(TIMESTAMPADD(MINUTE, 540, MIN(t.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 540, MIN(t.trdatetime)))) >
+                            (HOUR(MAX(t.trdatetime)) * 60 + MINUTE(MAX(t.trdatetime)))
+                            OR TIME(MIN(t.trdatetime)) = TIME(MAX(t.trdatetime))
+                            OR TIME(MAX(t.trdatetime)) <= '16:30:00'
+                            OR (TIME(MIN(t.trdatetime)) > '09:00:00' AND TIME(MAX(t.trdatetime)) < '18:00:00')
+                        )
+                    )
+                    OR
+                    (
+                        MAX(t.ramadhan_yt) = 1
+                        AND TIME(MAX(t.trdatetime)) <= '17:30:00'
+                        AND (
+                            (HOUR(TIMESTAMPADD(MINUTE, 510, MIN(t.trdatetime))) * 60 + MINUTE(TIMESTAMPADD(MINUTE, 510, MIN(t.trdatetime)))) >
+                            (HOUR(MAX(t.trdatetime)) * 60 + MINUTE(MAX(t.trdatetime)))
+                            OR TIME(MIN(t.trdatetime)) = TIME(MAX(t.trdatetime))
+                            OR TIME(MAX(t.trdatetime)) <= '16:00:00'
+                            OR (TIME(MIN(t.trdatetime)) > '09:00:00' AND TIME(MAX(t.trdatetime)) < '17:30:00')
+                        )
+                    )
+            ) AS early_out_days
+            ")[0]->total;
+
 
         // Fetch absence records count (excluding today)
         $absentRecords = $this->fetchAbsentRecordsCount($idpeg, $startDate, $yesterday);
