@@ -183,9 +183,22 @@ class UserService
             'status' => $transAlasan->status,
         ] : null;
 
-        $totalPendingReviews = $this->attendanceRecordService->getReviewCount($idpeg, $roleId);
-
-        $totalPendingApprovals = $this->attendanceRecordService->getApprovalCount($idpeg, $roleId);
+        /*   
+         * 
+         * Note: This logic assumes that the role ID is used to determine if the user can review/approve.
+         * If the role ID is not allowed to review/approve, it will catch the exception and set counts to 0.
+         */
+       
+         $totalPendingReviews = 0;
+         $totalPendingApprovals = 0;
+         
+         try {
+             $totalPendingReviews = $this->attendanceRecordService->getReviewCount($idpeg, $roleId);
+             $totalPendingApprovals = $this->attendanceRecordService->getApprovalCount($idpeg, $roleId);
+         } catch (\InvalidArgumentException $e) {
+             \Log::info("User ID $idpeg has role $roleId which is not allowed to review/approve. Defaults applied.");
+             // Leave values as 0
+         }
 
         // Enable Query Logging
         DB::enableQueryLog();
