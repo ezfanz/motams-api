@@ -42,7 +42,7 @@ class AttendanceActionService
                 'catatanpeg' => $data['catatanpeg'],
             ], 2);
 
-            return $this->response('Rekod berjaya dikemas kini.', $boxColor, 200);
+            return $this->response('Rekod berjaya dikemas kini', $boxColor, 200);
         }
 
         // If no existing record, create a new one
@@ -78,7 +78,7 @@ class AttendanceActionService
                 'catatanpeg' => $data['catatanpeg'],
             ], 1);
     
-            return $this->response('Rekod kedatangan lewat berjaya dikemas kini.', $boxColor, 200);
+            return $this->response('Rekod kedatangan lewat berjaya dikemas kini', $boxColor, 200);
         }
     
         // Create a new record if none exists
