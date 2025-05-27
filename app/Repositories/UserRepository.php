@@ -84,7 +84,11 @@ class UserRepository
             'jawatan' => $user->jawatan,
             'department' => $user->department->diskripsi ?? 'N/A',
             'role' => $user->roles->diskripsi ?? 'N/A',
+
+            'penyemak_id' => $user->penyemak_id,
             'nama_penyemak' => $this->getUserFullNameById($user->penyemak_id) ?? 'No Penyemak',
+
+            'pengesah_id' => $user->pengesah_id,
             'nama_pengesah' => $this->getUserFullNameById($user->pengesah_id) ?? 'No Pengesah',
         ];
     }

@@ -25,6 +25,7 @@ class OfficeLeaveRequestFormRequest extends FormRequest
             'masa_kembali' => 'required|date_format:H:i:s|after:masa_keluar',
             'bilhari' => 'required_if:jenis,1|numeric|nullable',
             'catatan' => 'required|string|max:255',
+            'pelulus_id' => 'required|integer|exists:users,id',
         ];
     }
     
