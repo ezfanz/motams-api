@@ -553,14 +553,14 @@ class AttendanceRecordRepository
         return $dayNow > 10
             ? TransAlasan::leftJoin('users', 'trans_alasan.idpeg', '=', 'users.id')
             ->where('trans_alasan.status', 1)
-            ->where('users.reviewing_officer_id', $userId)
+            ->where('users.penyemak_id', $userId)
             ->where('trans_alasan.is_deleted', '!=', 1)
             ->whereYear('trans_alasan.log_datetime', now()->year)
             ->whereMonth('trans_alasan.log_datetime', now()->month)
             ->count()
             : TransAlasan::leftJoin('users', 'trans_alasan.idpeg', '=', 'users.id')
             ->where('trans_alasan.status', 1)
-            ->where('users.reviewing_officer_id', $userId)
+            ->where('users.penyemak_id', $userId)
             ->where('trans_alasan.is_deleted', '!=', 1)
             ->whereYear('trans_alasan.log_datetime', now()->year)
             ->where(function ($query) use ($currentMonth, $lastMonth) {
