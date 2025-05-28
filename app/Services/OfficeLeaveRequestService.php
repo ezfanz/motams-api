@@ -90,11 +90,11 @@ class OfficeLeaveRequestService
 
             return [
                 'status' => 'success',
-                'message' => 'Proses simpan rekod berjaya dan telah dihantar ke Pegawai Pengesah untuk pengesahan.',
+                'message' => 'Proses simpan rekod berjaya.',
             ];
         } catch (\Exception $e) {
             DB::rollBack(); // Rollback if something fails
-            Log::error('Leave request failed to save', ['error' => $e->getMessage()]);
+            Log::error('Proses simpan rekod tidak berjaya', ['error' => $e->getMessage()]);
             return [
                 'status' => 'error',
                 'message' => 'Database error: ' . $e->getMessage(),
@@ -179,5 +179,11 @@ class OfficeLeaveRequestService
                 ->count();
         }
     }
+
+    public function getAvailableApprovers(int $userId): array
+    {
+        return $this->repository->getApproversForUser($userId);
+    }
+
 
 }

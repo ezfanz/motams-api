@@ -68,20 +68,28 @@ class OfficeLeaveRequestRequest extends FormRequest
     public function messages(): array
     {
         return [
-            'leave_type_id.required' => 'The leave type is required.',
-            'leave_type_id.exists' => 'The selected leave type does not exist.',
-            'date.required' => 'The date of leave is required.',
-            'date.date' => 'The date must be a valid date.',
-            'date.after_or_equal' => 'The leave date cannot be in the past.',
-            'day.required' => 'The day of the week is required.',
-            'day.in' => 'The day must be a valid day of the week.',
-            'start_time.required' => 'The start time is required.',
-            'start_time.date_format' => 'The start time must be in the format HH:MM.',
-            'end_time.required' => 'The end time is required.',
-            'end_time.date_format' => 'The end time must be in the format HH:MM.',
-            'end_time.after' => 'The end time must be after the start time.',
-            'reason.max' => 'The reason cannot exceed 255 characters.',
-            'status.in' => 'The status must be follow status table.'
+            'leave_type_id.required' => 'Jenis cuti adalah wajib.',
+            'leave_type_id.exists' => 'Jenis cuti yang dipilih tidak wujud.',
+
+            'date_mula.required' => 'Tarikh mula adalah wajib.',
+            'date_mula.after_or_equal' => 'Tarikh mula mestilah hari ini atau selepas hari ini.',
+
+            'date_tamat.required' => 'Tarikh tamat adalah wajib.',
+            'date_tamat.after_or_equal' => 'Tarikh tamat mestilah hari ini atau selepas hari ini.',
+
+            'day.required' => 'Hari adalah wajib.',
+
+            'start_time.required' => 'Masa keluar adalah wajib.',
+            'start_time.date_format' => 'Format masa keluar mestilah dalam format HH:MM.',
+
+            'end_time.required' => 'Masa kembali adalah wajib.',
+            'end_time.date_format' => 'Format masa kembali mestilah dalam format HH:MM.',
+            'end_time.after' => 'Masa kembali mestilah selepas masa keluar.',
+
+            'reason.max' => 'Catatan tidak boleh melebihi 255 aksara.',
+
+            'status.in' => 'Status mesti sah mengikut senarai status yang dibenarkan.'
         ];
     }
+    
 }

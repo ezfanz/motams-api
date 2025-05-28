@@ -79,7 +79,7 @@ Route::group(['prefix' => 'v1', 'middleware' => ['auth:api', 'throttle:global']]
     });
 
 
-    /**
+    /** 
      * Office Leave Management
      */
     Route::prefix('office-leave')->group(function () {
@@ -89,6 +89,8 @@ Route::group(['prefix' => 'v1', 'middleware' => ['auth:api', 'throttle:global']]
         Route::get('requests/count-approval', [OfficeLeaveRequestController::class, 'countApproval']);
         Route::post('/approve', [OfficeLeaveApprovalController::class, 'approve'])->name('office-leave.approve');
         Route::get('/status/list', [OfficeLeaveStatusController::class, 'getLeaveStatus'])->name('office-leave-status.list');
+        Route::get('/pelulus/{userId}', [OfficeLeaveRequestController::class, 'getAvailableApprovers']);
+
 
 
         Route::apiResource('requests', OfficeLeaveRequestController::class); // Register without additional prefix

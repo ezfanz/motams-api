@@ -30,7 +30,7 @@ class OfficeLeaveRequestController extends Controller
     public function index(): JsonResponse
     {
         $leaveRequests = $this->service->getAllLeaveRequests();
-        return ResponseHelper::success($leaveRequests, 'Leave requests retrieved successfully');
+        return ResponseHelper::success($leaveRequests, 'Senarai permohonan keluar pejabat berjaya dipaparkan');
     }
 
       /**
@@ -40,24 +40,24 @@ class OfficeLeaveRequestController extends Controller
      * @return JsonResponse
      */
     public function store(OfficeLeaveRequestFormRequest $request): JsonResponse
-    {
-        $userId = Auth::id();
-        $data = $request->validated();
+{
+    $userId = Auth::id();
+    $data = $request->validated();
 
-        $result = $this->service->createLeaveRequest($userId, $data);
+    $result = $this->service->createLeaveRequest($userId, $data);
 
-        if ($result['status'] === 'success') {
-            return response()->json([
-                'status' => 'success',
-                'message' => $result['message']
-            ], 201);
-        }
-
+    if ($result['status'] === 'success') {
         return response()->json([
-            'status' => 'error',
+            'status' => 'success',
             'message' => $result['message']
-        ], 400);
+        ], 201);
     }
+
+    return response()->json([
+        'status' => 'error',
+        'message' => $result['message']
+    ], 400);
+}
 
     /**
      * Display the specified leave request.
@@ -69,9 +69,9 @@ class OfficeLeaveRequestController extends Controller
     {
         $leaveRequest = $this->service->getLeaveRequestById($id);
         if ($leaveRequest) {
-            return ResponseHelper::success($leaveRequest, 'Leave request retrieved successfully');
+            return ResponseHelper::success($leaveRequest, 'Maklumat permohonan keluar pejabat berjaya dipaparkan');
         }
-        return ResponseHelper::error('Leave request not found', 404);
+        return ResponseHelper::error('Permohonan keluar pejabat tidak dijumpai', 404);
     }
 
     /**
@@ -85,9 +85,9 @@ class OfficeLeaveRequestController extends Controller
     {
         $leaveRequest = $this->service->updateLeaveRequest($id, $request->validated());
         if ($leaveRequest) {
-            return ResponseHelper::success($leaveRequest, 'Leave request updated successfully');
+            return ResponseHelper::success($leaveRequest, 'Permohonan keluar pejabat berjaya dikemaskini');
         }
-        return ResponseHelper::error('Leave request not found', 404);
+        return ResponseHelper::error('Permohonan keluar pejabat tidak dijumpai', 404);
     }
 
     /**
@@ -99,9 +99,9 @@ class OfficeLeaveRequestController extends Controller
     public function destroy(int $id): JsonResponse
     {
         if ($this->service->deleteLeaveRequest($id)) {
-            return ResponseHelper::success(null, 'Leave request deleted successfully');
+            return ResponseHelper::success(null, 'Permohonan keluar pejabat berjaya dipadam');
         }
-        return ResponseHelper::error('Leave request not found', 404);
+        return ResponseHelper::error('Permohonan keluar pejabat tidak dijumpai', 404);
     }
 
       /**
@@ -112,18 +112,17 @@ class OfficeLeaveRequestController extends Controller
      */
     public function getByMonth(Request $request): JsonResponse
     {
-        // Use simple query validation for month and year parameters
         $validated = $request->validate([
             'month' => 'required|integer|min:1|max:12',
             'year' => 'required|integer|min:1900|max:' . now()->year,
         ]);
-
+    
         $month = $validated['month'];
         $year = $validated['year'];
-
+    
         $leaveRequests = $this->service->getLeaveRequestsByMonth($month, $year);
-
-        return ResponseHelper::success($leaveRequests, 'Leave requests retrieved successfully for the specified month');
+    
+        return ResponseHelper::success($leaveRequests, 'Senarai permohonan untuk bulan yang dipilih berjaya dipaparkan');
     }
 
     public function countApproval(Request $request): JsonResponse
@@ -142,7 +141,15 @@ class OfficeLeaveRequestController extends Controller
         $approvalCount = $this->service->countApprovalsForUser($userId, $roleId);
     
         // Return the count as a response
-        return ResponseHelper::success(['count' => $approvalCount], 'Approval office leave count retrieved successfully');
+        return ResponseHelper::success(['count' => $approvalCount], 'Jumlah permohonan keluar pejabat yang menunggu kelulusan berjaya dipaparkan');
     }
+
+    public function getAvailableApprovers(int $userId): JsonResponse
+    {
+        $approvers = $this->service->getAvailableApprovers($userId);
+
+        return ResponseHelper::success($approvers, 'Senarai pelulus berjaya dipaparkan');
+    }
+
     
 }

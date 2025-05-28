@@ -4,6 +4,7 @@ namespace App\Repositories;
 
 use App\Models\OfficeLeaveRequest;
 use Illuminate\Database\Eloquent\Collection;
+use App\Models\User;
 
 class OfficeLeaveRequestRepository
 {
@@ -89,6 +90,36 @@ class OfficeLeaveRequestRepository
             ->whereMonth('date_mula', $month) // ✅ Changed `date` to `date_mula`
             ->get();
     }
+
+    public function getApproversForUser(int $userId): array
+    {
+        $user = User::with(['penyemak', 'pengesah'])->find($userId);
+
+        if (!$user) {
+            return [];
+        }
+
+        $approvers = [];
+
+        if ($user->penyemak) {
+            $approvers[] = [
+                'id' => $user->penyemak->id,
+                'nama' => $user->penyemak->fullname,
+                'type' => 'penyemak',
+            ];
+        }
+
+        if ($user->pengesah) {
+            $approvers[] = [
+                'id' => $user->pengesah->id,
+                'nama' => $user->pengesah->fullname,
+                'type' => 'pengesah',
+            ];
+        }
+
+        return $approvers;
+    }
+
     
 
 }
