@@ -144,10 +144,11 @@ class OfficeLeaveRequestController extends Controller
         return ResponseHelper::success(['count' => $approvalCount], 'Jumlah permohonan keluar pejabat yang menunggu kelulusan berjaya dipaparkan');
     }
 
-    public function getAvailableApprovers(int $userId): JsonResponse
+    public function getAvailableApprovers($userId) 
     {
+        $userId = (int) $userId;
         $approvers = $this->service->getAvailableApprovers($userId);
-
+    
         return ResponseHelper::success($approvers, 'Senarai pelulus berjaya dipaparkan');
     }
 
